@@ -33,10 +33,16 @@ sub contrib_calendar {
 
     if ( $response->is_success ) {
         use Data::Dumper;
+        my $last;
         my %hash = map {
             my $w = wday( $_->[0] );
             my $l = label( $_->[1] );
+            $last=  $l if (!$last);
+
             $self->{stats}->{$w}->{$l}++;    #filling stats hashref
+            $self->{transition}->{$w}->{$last}->{$l}++;    #filling stats hashref
+
+                        $last=$l;
             $_->[0] => {
                 c => $_->[1],                #commits
                 d => $w,                     #day in the week
@@ -45,8 +51,10 @@ sub contrib_calendar {
 
         } @{ eval( $response->decoded_content ) };
         print Dumper( \%hash );
+        info "Stats";
         print Dumper( $self->{stats} );
-
+        info "Transition table";
+ print Dumper( $self->{transition} );
         $self->contribs(%hash);
         return $self->contribs;
     }
@@ -58,7 +66,23 @@ sub contrib_calendar {
 sub process {
     my $self = shift;
     my $sum;
+
+
     foreach my $k ( keys %{ $self->{stats} } ) {
+        $sum = 0;
+        $sum += $_ for values %{ $self->{stats}->{$k} };
+        map {
+            info "Calculating probability for $k -> label $_  $sum /  "
+                . $self->{stats}->{$k}->{$_};
+            my $prob = prob( $sum, $self->{stats}->{$k}->{$_} );
+            info "Is: $prob";
+            $self->{stats}->{$k}->{$_} = sprintf "%.5f", $prob;
+        } ( keys %{ $self->{stats}->{$k} } );
+    }
+
+
+#transition matrix, sum all the transitions occourred,  and do prob(sumtransiction ,n°transictionx )
+  foreach my $k ( keys %{ $self->{transition} } ) {
         $sum = 0;
         $sum += $_ for values %{ $self->{stats}->{$k} };
         map {
