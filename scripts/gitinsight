@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use lib 'lib';
+use GitInsight;
+use GitInsight::Util qw(info error warning prob);
+use Data::Dumper;
+my $Insight= GitInsight->new();
+#info $Insight->prob(500,250);
+
+
+
+$Insight->contrib_calendar("dgikiller");
+$Insight->process;
+
+#
