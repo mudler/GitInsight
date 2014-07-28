@@ -53,13 +53,10 @@ sub wday {    # 2014-03-15 -> DayName
 
 sub gen_trans_mat {
     my $no_day_stats = shift || 0;
+    return zeroes scalar(@CONTRIBS), scalar(@CONTRIBS)
+        if ( $no_day_stats == 1 );
     my $h = {};
-    if ( $no_day_stats == 1 ) {
-        $h = zeroes scalar(@CONTRIBS), scalar(@CONTRIBS);
-    }
-    else {
-        $h->{$_} = zeroes scalar(@CONTRIBS), scalar(@CONTRIBS) for @wday;
-    }
+    $h->{$_} = zeroes scalar(@CONTRIBS), scalar(@CONTRIBS) for @wday;
     return $h;
 }
 

@@ -23,13 +23,6 @@ has 'contribs';
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
 
-sub new {
-    my $self = shift;
-    $self = $self->SUPER::new(@_);
-    $self->{transition} = gen_trans_mat($self->no_day_stats);
-    return $self;
-}
-
 sub contrib_calendar {
     my $self     = shift;
     my $username = shift || $self->username;
@@ -54,6 +47,7 @@ sub contrib_calendar {
 sub decode {
     my $self     = shift;
     my $response = eval(shift);
+    $self->{transition} = gen_trans_mat( $self->no_day_stats );
     my $last;
     my %hash;
 
@@ -139,16 +133,18 @@ sub display_stats {
 sub _markov {
     my $self = shift;
     info "Markov chain phase";
-    my $dayn=1;
+    my $dayn = 1;
     foreach my $day ( @{ $self->{last_week} } ) {
         my $wd = wday( $day->[0] );
         my $ld = $day->[1];
-        my ( $label, $prob ) = markov( gen_m_mat($ld),
-              $self->no_day_stats == 1
+        my ( $label, $prob ) = markov(
+            gen_m_mat($ld),
+            $self->no_day_stats == 1
             ? $self->{transition}
-            : $self->{transition}->{$wd} ,  $self->no_day_stats == 1
-            ? $dayn : 1 );
-        $prob = sprintf "%.2f", $prob * 100 ;
+            : $self->{transition}->{$wd},
+            $self->no_day_stats == 1 ? $dayn : 1
+        );
+        $prob = sprintf "%.2f", $prob * 100;
         info "Day: $wd  $prob \% of probability for Label $label";
         $dayn++;
     }
