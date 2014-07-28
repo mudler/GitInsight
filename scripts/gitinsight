@@ -5,10 +5,10 @@ use GitInsight::Util qw(info error warning prob);
 use Data::Dumper;
 my $Insight= GitInsight->new();
 #info $Insight->prob(500,250);
-
-
-
 $Insight->contrib_calendar("mudler");
 $Insight->process;
+$Insight= $Insight->new(no_day_stats=>1);
+$Insight->contrib_calendar("mudler");
 
+$Insight->process;
 #
