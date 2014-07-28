@@ -11,13 +11,22 @@ use GitInsight::Obj -base;
 use strict;
 use warnings;
 use 5.008_005;
+use Data::Dumper;
 
-use GitInsight::Util qw(info error warning wday label prob);
+use GitInsight::Util
+    qw(LABEL_DIM gen_trans_mat info error warning wday label prob);
 
 use LWP::UserAgent;
 
 has 'username';
 has 'contribs';
+
+sub new {
+    my $self = shift;
+    $self = $self->SUPER::new(@_);
+    $self->{transition} = gen_trans_mat;
+    return $self;
+}
 
 sub contrib_calendar {
     my $self     = shift;
@@ -32,30 +41,7 @@ sub contrib_calendar {
             . '/contributions_calendar_data' );
 
     if ( $response->is_success ) {
-        use Data::Dumper;
-        my $last;
-        my %hash = map {
-            my $w = wday( $_->[0] );
-            my $l = label( $_->[1] );
-            $last=  $l if (!$last);
-
-            $self->{stats}->{$w}->{$l}++;    #filling stats hashref
-            $self->{transition}->{$w}->{$last}->{$l}++;    #filling stats hashref
-
-                        $last=$l;
-            $_->[0] => {
-                c => $_->[1],                #commits
-                d => $w,                     #day in the week
-                l => $l                      #label
-                }
-
-        } @{ eval( $response->decoded_content ) };
-        print Dumper( \%hash );
-        info "Stats";
-        print Dumper( $self->{stats} );
-        info "Transition table";
- print Dumper( $self->{transition} );
-        $self->contribs(%hash);
+        $self->decode( $response->decoded_content );
         return $self->contribs;
     }
     else {
@@ -63,10 +49,46 @@ sub contrib_calendar {
     }
 }
 
+sub decode {
+    my $self     = shift;
+    my $response = eval(shift);
+    my $last;
+    my %hash = map {
+        my $w = wday( $_->[0] );
+        my $l = label( $_->[1] );
+        $last = $l if ( !$last );
+
+        $self->{stats}->{$w}->{$l}++;    #filling stats hashref
+        $self->{transition_hash}->{$w}->{$last}
+            ->{$l}++;                    #filling stats hashref
+        $self->{transition_hash}->{$w}
+            ->{t}++;                     #total of transitions for each day
+        $self->{transition}->{$w}
+            ->slice("$last,$l")++;       #filling transition matrix
+        $last = $l;
+        $_->[0] => {
+            c => $_->[1],                #commits
+            d => $w,                     #day in the week
+            l => $l                      #label
+            }
+
+    } @{$response};
+    print Dumper( \%hash );
+    $self->{last_week} = map { [ $_->[0], label( $_->[1] ) ] }
+        @{$response}[ -7 .. -1 ]
+        ; # cutting the last week from the answer and substituting the label instead of the commit number
+    info "some stats";
+    print Dumper( $self->{stats} );
+    info "Transition table is";
+    print Dumper( $self->{transition_hash} );
+    print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
+    $self->contribs(%hash);
+    return %hash;
+}
+
 sub process {
     my $self = shift;
     my $sum;
-
 
     foreach my $k ( keys %{ $self->{stats} } ) {
         $sum = 0;
@@ -80,33 +102,39 @@ sub process {
         } ( keys %{ $self->{stats}->{$k} } );
     }
 
+    $self->transition_matrix;
+    $self->markov;
 
-#transition matrix, sum all the transitions occourred,  and do prob(sumtransiction ,n°transictionx )
-  foreach my $k ( keys %{ $self->{transition} } ) {
-        $sum = 0;
-        $sum += $_ for values %{ $self->{stats}->{$k} };
-        map {
-            info "Calculating probability for $k -> label $_  $sum /  "
-                . $self->{stats}->{$k}->{$_};
-            my $prob = prob( $sum, $self->{stats}->{$k}->{$_} );
-            info "Is: $prob";
-            $self->{stats}->{$k}->{$_} = sprintf "%.5f", $prob;
-        } ( keys %{ $self->{stats}->{$k} } );
-    }
-
-
-    ##next: estimation of transition matrix : https://stackoverflow.com/questions/16845199/estimate-markov-chain-transition-matrix-in-matlab-with-different-state-sequence
-
-    #https://stackoverflow.com/questions/11072206/constructing-a-multi-order-markov-chain-transition-matrix-in-matlab
-
-    #https://www.imf.org/external/pubs/ft/wp/2005/wp05219.pdf
-    #http://www.zweigmedia.com/RealWorld/Summary8.html
-    #http://freakonometrics.hypotheses.org/6803
-    #    http://www.mathworks.com/matlabcentral/newsreader/view_thread/278292
+    print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
 
     use Data::Dumper;
     print Dumper( $self->{stats} );
 
+}
+
+sub markov{
+
+}
+
+sub transition_matrix {
+
+#transition matrix, sum all the transitions occourred,  and do prob(sumtransiction ,current transation occurrance )
+    my $self = shift;
+    info "Going to calculate transation probabilities";
+    foreach my $k ( keys %{ $self->{transition} } ) {
+        info "There are "
+            . $self->{transition}->{$k}->nelem
+            . " elements in $k";
+        map {
+            foreach my $c ( 0 .. LABEL_DIM ) {
+                $self->{transition}->{$k}->slice("$_,$c") .= prob(
+                    $self->{transition_hash}->{$k}->{t},
+                    $self->{transition}->{$k}->slice("$_,$c")
+                    )
+                    ; # all the transation occurred in those days, current transation
+            }
+        } ( 0 .. LABEL_DIM );
+    }
 }
 
 1;

@@ -6,15 +6,28 @@ use PDL::LiteF;
 use PDL::Lite;
 use PDL::Stats;
 use PDL::Graphics::Simple;
+
+# EVENTS LABELS:
 use constant NO_CONTRIBUTIONS     => 0;
 use constant FEW_CONTRIBUTIONS    => 1;
 use constant NORMAL_CONTRIBUTIONS => 2;
 use constant MORE_CONTRIBUTIONS   => 3;
 use constant HIGH_CONTRIBUTIONS   => 4;
 
-our @EXPORT = ();
+# LABEL ARRAY:
+our @CONTRIBS = (
+    NO_CONTRIBUTIONS,     FEW_CONTRIBUTIONS,
+    NORMAL_CONTRIBUTIONS, MORE_CONTRIBUTIONS,
+    HIGH_CONTRIBUTIONS
+);
 
-our @EXPORT_OK = ( qw(info error warning wday label prob plot), @EXPORT );
+# LABEL DIMENSION, STARTING TO 0
+
+use constant LABEL_DIM=> 4; # D:5
+
+our @EXPORT   = qw(info error warning);
+our @EXPORT_OK
+    = ( qw(dim gen_trans_mat LABEL_DIM wday label prob plot), @EXPORT );
 our @wday = qw/Mon Tue Wed Thu Fri Sat Sun/;
 
 sub info {
@@ -34,6 +47,12 @@ sub wday {    # 2014-03-15 -> DayName
     return
         $wday[ ( localtime( timelocal( 0, 0, 0, $mday, $mon - 1, $year ) ) )
         [6] - 1 ];
+}
+
+sub gen_trans_mat {
+    my $h = {};
+    $h->{$_} = zeroes scalar(@CONTRIBS), scalar(@CONTRIBS)  for @wday;
+    return $h;
 }
 
 sub label {
@@ -73,7 +92,7 @@ sub plot {
         )
     );
     sleep 200;
-
 }
+
 
 1;
