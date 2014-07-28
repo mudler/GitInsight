@@ -14,7 +14,7 @@ use 5.008_005;
 use Data::Dumper;
 
 use GitInsight::Util
-    qw(LABEL_DIM gen_trans_mat info error warning wday label prob);
+    qw(markov LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob);
 
 use LWP::UserAgent;
 
@@ -74,8 +74,8 @@ sub decode {
 
     } @{$response};
     print Dumper( \%hash );
-    $self->{last_week} = map { [ $_->[0], label( $_->[1] ) ] }
-        @{$response}[ -7 .. -1 ]
+    $self->{last_week} = [map { [ $_->[0], label( $_->[1] ) ] }
+        @{$response}[ -7 .. -1 ]]
         ; # cutting the last week from the answer and substituting the label instead of the commit number
     info "some stats";
     print Dumper( $self->{stats} );
@@ -102,21 +102,30 @@ sub process {
         } ( keys %{ $self->{stats}->{$k} } );
     }
 
-    $self->transition_matrix;
-    $self->markov;
+    $self->_transition_matrix;
+    $self->_markov;
 
-    print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
+#print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
 
-    use Data::Dumper;
-    print Dumper( $self->{stats} );
-
-}
-
-sub markov{
+  #  use Data::Dumper;
+   # print Dumper( $self->{stats} );
 
 }
 
-sub transition_matrix {
+sub _markov{
+my $self=shift;
+info "Markov chain phase";
+foreach my $day (@{$self->{last_week}}){
+    my $wd=wday($day->[0]);
+    my $ld=$day->[1];
+    my ($label,$prob) = markov(gen_m_mat($ld),$self->{transition}->{$wd});
+    $prob=int($prob*100);
+    info "Day: $wd  $prob \% of probability for Label $label";
+}
+
+}
+
+sub _transition_matrix {
 
 #transition matrix, sum all the transitions occourred,  and do prob(sumtransiction ,current transation occurrance )
     my $self = shift;

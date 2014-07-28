@@ -23,11 +23,12 @@ our @CONTRIBS = (
 
 # LABEL DIMENSION, STARTING TO 0
 
-use constant LABEL_DIM=> 4; # D:5
+use constant LABEL_DIM => 4;    # D:5
 
-our @EXPORT   = qw(info error warning);
-our @EXPORT_OK
-    = ( qw(dim gen_trans_mat LABEL_DIM wday label prob plot), @EXPORT );
+our @EXPORT    = qw(info error warning);
+our @EXPORT_OK = (
+    qw( markov gen_m_mat dim gen_trans_mat LABEL_DIM wday label prob plot), @EXPORT
+);
 our @wday = qw/Mon Tue Wed Thu Fri Sat Sun/;
 
 sub info {
@@ -51,8 +52,23 @@ sub wday {    # 2014-03-15 -> DayName
 
 sub gen_trans_mat {
     my $h = {};
-    $h->{$_} = zeroes scalar(@CONTRIBS), scalar(@CONTRIBS)  for @wday;
+    $h->{$_} = zeroes scalar(@CONTRIBS), scalar(@CONTRIBS) for @wday;
     return $h;
+}
+
+sub gen_m_mat {
+    my $label = shift;
+    my $h = zeroes( scalar(@CONTRIBS), 1 );
+    $h->slice("$label,0") .= 1;
+    return $h;
+}
+
+sub markov {
+    my $a      = shift;
+    my $b      = shift;
+    my $markov = $a x $b;
+    my $index=maximum_ind($markov)->at(0);
+    return ($index,$markov->slice("$index,0")->at(0,0));
 }
 
 sub label {
@@ -93,6 +109,5 @@ sub plot {
     );
     sleep 200;
 }
-
 
 1;
