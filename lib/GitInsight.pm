@@ -74,8 +74,8 @@ sub decode {
 
     } @{$response};
     print Dumper( \%hash );
-    $self->{last_week} = [map { [ $_->[0], label( $_->[1] ) ] }
-        @{$response}[ -7 .. -1 ]]
+    $self->{last_week}
+        = [ map { [ $_->[0], label( $_->[1] ) ] } @{$response}[ -7 .. -1 ] ]
         ; # cutting the last week from the answer and substituting the label instead of the commit number
     info "some stats";
     print Dumper( $self->{stats} );
@@ -88,9 +88,23 @@ sub decode {
 
 sub process {
     my $self = shift;
-    my $sum;
+  #  $self->display_stats;
 
-    foreach my $k ( keys %{ $self->{stats} } ) {
+    $self->_transition_matrix;
+    $self->_markov;
+
+    #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
+
+    #  use Data::Dumper;
+    # print Dumper( $self->{stats} );
+
+}
+
+sub display_stats{
+    my $self=shift;
+        my $sum;
+
+        foreach my $k ( keys %{ $self->{stats} } ) {
         $sum = 0;
         $sum += $_ for values %{ $self->{stats}->{$k} };
         map {
@@ -102,26 +116,18 @@ sub process {
         } ( keys %{ $self->{stats}->{$k} } );
     }
 
-    $self->_transition_matrix;
-    $self->_markov;
-
-#print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
-
-  #  use Data::Dumper;
-   # print Dumper( $self->{stats} );
-
 }
-
-sub _markov{
-my $self=shift;
-info "Markov chain phase";
-foreach my $day (@{$self->{last_week}}){
-    my $wd=wday($day->[0]);
-    my $ld=$day->[1];
-    my ($label,$prob) = markov(gen_m_mat($ld),$self->{transition}->{$wd});
-    $prob=int($prob*100);
-    info "Day: $wd  $prob \% of probability for Label $label";
-}
+sub _markov {
+    my $self = shift;
+    info "Markov chain phase";
+    foreach my $day ( @{ $self->{last_week} } ) {
+        my $wd = wday( $day->[0] );
+        my $ld = $day->[1];
+        my ( $label, $prob )
+            = markov( gen_m_mat($ld), $self->{transition}->{$wd} );
+        $prob = int( $prob * 100 );
+        info "Day: $wd  $prob \% of probability for Label $label";
+    }
 
 }
 
@@ -131,9 +137,6 @@ sub _transition_matrix {
     my $self = shift;
     info "Going to calculate transation probabilities";
     foreach my $k ( keys %{ $self->{transition} } ) {
-        info "There are "
-            . $self->{transition}->{$k}->nelem
-            . " elements in $k";
         map {
             foreach my $c ( 0 .. LABEL_DIM ) {
                 $self->{transition}->{$k}->slice("$_,$c") .= prob(
