@@ -51,7 +51,7 @@ sub decode {
     my $last;
     my %hash;
 
-    %hash = $self->no_day_stats == 1
+    %hash = $self->no_day_stats
         ? map {
         my $l = label( $_->[1] );
         $last = $l if ( !$last );
@@ -139,10 +139,10 @@ sub _markov {
         my $ld = $day->[1];
         my ( $label, $prob ) = markov(
             gen_m_mat($ld),
-            $self->no_day_stats == 1
+            $self->no_day_stats
             ? $self->{transition}
             : $self->{transition}->{$wd},
-            $self->no_day_stats == 1 ? $dayn : 1
+            $self->no_day_stats ? $dayn : 1
         );
         $prob = sprintf "%.2f", $prob * 100;
         info "Day: $wd  $prob \% of probability for Label $label";
@@ -156,7 +156,7 @@ sub _transition_matrix {
 #transition matrix, sum all the transitions occourred in each day,  and do prob(sumtransiction ,current transation occurrance )
     my $self = shift;
     info "Going to build transation matrix probabilities";
-    if ( $self->no_day_stats == 1 ) {
+    if ( $self->no_day_stats  ) {
         map {
             foreach my $c ( 0 .. LABEL_DIM ) {
                 $self->{transition}->slice("$_,$c")

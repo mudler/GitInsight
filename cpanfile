@@ -1,4 +1,5 @@
 requires 'Carp::Always';
+requires 'Getopt::Long';
 requires 'LWP::UserAgent';
 requires 'PDL::Graphics::Simple';
 requires 'PDL::Lite';
