@@ -1,5 +1,9 @@
 package GitInsight;
 
+# XXX: Todo , split labels by maximum contribution
+# XXX: Add behavioural change detection, focusing on that period for predictions
+# XXX: CA output
+
 BEGIN {
     $|  = 1;
     $^W = 1;
@@ -142,11 +146,11 @@ sub _markov {
             $self->no_day_stats
             ? $self->{transition}
             : $self->{transition}->{$wd},
-            $self->no_day_stats ? $dayn : 1
+           $dayn
         );
         $prob = sprintf "%.2f", $prob * 100;
         info "Day: $wd  $prob \% of probability for Label $label";
-        $dayn++;
+        $dayn++ if  $self->no_day_stats;
     }
 
 }

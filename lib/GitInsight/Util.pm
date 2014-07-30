@@ -44,7 +44,7 @@ sub warning {
     print "[warning] - @_  \n";
 }
 
-sub wday {    # 2014-03-15 -> DayName
+sub wday {    # 2014-03-15 -> DayName  ( Dayname element of @wday )
     my ( $mday, $mon, $year ) = reverse( split( /-/, shift ) );
     return
         $wday[ ( localtime( timelocal( 0, 0, 0, $mday, $mon - 1, $year ) ) )
