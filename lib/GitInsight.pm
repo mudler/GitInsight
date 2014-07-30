@@ -48,9 +48,15 @@ sub contrib_calendar {
     }
 }
 
+# first argument is the data:
+# it should be a string in the form [ [2013-01-20, 9], ....    ] a stringified form of arrayref. each element must be an array ref containing in the first position the date, and in the second the commits .
 sub decode {
     my $self     = shift;
     my $response = eval(shift);
+    my $min= shift || 0 ;
+    $min = 0 if($min < 0); # avoid negative numbers
+    my $max = shift || (scalar(@{$response}) - $min);
+    $max = scalar(@{$response})  if $max > scalar(@{$response}); # maximum cutoff boundary it's array element number
     $self->{transition} = gen_trans_mat( $self->no_day_stats );
     my $last;
     my %hash;
@@ -71,7 +77,7 @@ sub decode {
             l => $l                                 #label
             }
 
-        } @{$response}
+        } ($min!=0 || $max!= scalar@{$response})? splice(@{$response},$min,$max) :@{$response}
         : map {
         my $w = wday( $_->[0] );
         my $l = label( $_->[1] );
@@ -92,7 +98,7 @@ sub decode {
             l => $l                   #label
             }
 
-        } @{$response};
+        } ($min!=0 || $max!= scalar@{$response})? splice(@{$response},$min,$max) :@{$response};
     $self->{last_week}
         = [ map { [ $_->[0], label( $_->[1] ) ] } @{$response}[ -7 .. -1 ] ]
         ; # cutting the last week from the answer and substituting the label instead of the commit number
