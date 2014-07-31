@@ -1,6 +1,6 @@
 package GitInsight;
 
-# XXX: Todo , split labels by maximum contribution
+
 # XXX: Add behavioural change detection, focusing on that period for predictions
 # XXX: CA output
 
@@ -18,7 +18,8 @@ use 5.008_005;
 use Data::Dumper;
 
 use GitInsight::Util
-    qw(markov LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob);
+    qw(markov markov_list LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob);
+use List::Util qw(max);
 
 use LWP::UserAgent;
 
@@ -51,15 +52,22 @@ sub contrib_calendar {
 # first argument is the data:
 # it should be a string in the form [ [2013-01-20, 9], ....    ] a stringified form of arrayref. each element must be an array ref containing in the first position the date, and in the second the commits .
 sub decode {
-    my $self     = shift;
-    my $response = eval(shift);
-    my $min= shift || 0 ;
-    $min = 0 if($min < 0); # avoid negative numbers
-    my $max = shift || (scalar(@{$response}) - $min);
-    $max = scalar(@{$response})  if $max > scalar(@{$response}); # maximum cutoff boundary it's array element number
+    my $self       = shift;
+    my $response   = eval(shift);
+    my $max_commit = max( map { $_->[1] } @{$response} ); #Calculating label steps
+    $GitInsight::Util::label_step=int($max_commit/LABEL_DIM);  #XXX: i'm not 100% sure of that
+    info "Step is ".$GitInsight::Util::label_step.", detected $max_commit of maximum commit in one day";
+    my $min = shift || 0;
+    $min = 0 if ( $min < 0 );    # avoid negative numbers
+    my $max = shift || ( scalar( @{$response} ) - $min );
+    $max = scalar( @{$response} )
+        if $max > scalar( @{$response} )
+        ;    # maximum cutoff boundary it's array element number
     $self->{transition} = gen_trans_mat( $self->no_day_stats );
     my $last;
     my %hash;
+
+    # $self->{max_commit} =0;
 
     %hash = $self->no_day_stats
         ? map {
@@ -71,34 +79,39 @@ sub decode {
         $self->{transition_hash}->{$last}->{$l}++;    #filling stats hashref
         $self->{transition_hash}->{t}++;    #total of transitions for each day
         $self->{transition}->slice("$last,$l")++;   #filling transition matrix
+            #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
         $last = $l;
         $_->[0] => {
-            c => $_->[1],                           #commits
-            l => $l                                 #label
+            c => $_->[1],    #commits
+            l => $l          #label
             }
 
-        } ($min!=0 || $max!= scalar@{$response})? splice(@{$response},$min,$max) :@{$response}
+        } ( $min != 0 || $max != scalar @{$response} )
+            ? splice( @{$response}, $min, $max )
+            : @{$response}
         : map {
         my $w = wday( $_->[0] );
         my $l = label( $_->[1] );
         $last = $l if ( !$last );
 
         $self->{stats}->{$w}->{$l}++
-            if $self->statistics == 1;              #filling stats hashref
+            if $self->statistics == 1;    #filling stats hashref
         $self->{transition_hash}->{$w}->{$last}
-            ->{$l}++;                               #filling stats hashref
+            ->{$l}++;                     #filling stats hashref
         $self->{transition_hash}->{$w}
-            ->{t}++;    #total of transitions for each day
+            ->{t}++;                      #total of transitions for each day
         $self->{transition}->{$w}
-            ->slice("$last,$l")++;    #filling transition matrix
+            ->slice("$last,$l")++;        #filling transition matrix
         $last = $l;
         $_->[0] => {
-            c => $_->[1],             #commits
-            d => $w,                  #day in the week
-            l => $l                   #label
+            c => $_->[1],                 #commits
+            d => $w,                      #day in the week
+            l => $l                       #label
             }
 
-        } ($min!=0 || $max!= scalar@{$response})? splice(@{$response},$min,$max) :@{$response};
+        } ( $min != 0 || $max != scalar @{$response} )
+        ? splice( @{$response}, $min, $max )
+        : @{$response};
     $self->{last_week}
         = [ map { [ $_->[0], label( $_->[1] ) ] } @{$response}[ -7 .. -1 ] ]
         ; # cutting the last week from the answer and substituting the label instead of the commit number
@@ -113,7 +126,7 @@ sub process {
     #  $self->display_stats;
 
     $self->_transition_matrix;
-    $self->_markov;
+    return $self->_markov;
 
     #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
 
@@ -147,17 +160,39 @@ sub _markov {
     foreach my $day ( @{ $self->{last_week} } ) {
         my $wd = wday( $day->[0] );
         my $ld = $day->[1];
-        my ( $label, $prob ) = markov(
+
+        # my ( $label, $prob ) = markov_prob(
+        #     gen_m_mat($ld),
+        #     $self->no_day_stats
+        #     ? $self->{transition}
+        #     : $self->{transition}->{$wd},
+        #     $dayn
+        # );
+
+        my $M = markov_list(
             gen_m_mat($ld),
             $self->no_day_stats
             ? $self->{transition}
             : $self->{transition}->{$wd},
-           $dayn
+            $dayn
         );
-        $prob = sprintf "%.2f", $prob * 100;
-        info "Day: $wd  $prob \% of probability for Label $label";
-        $dayn++ if  $self->no_day_stats;
+
+        push( @{ $self->{result} }, [ $wd, $M ] );
+
+        info "for $wd:";
+        info $_. " ---- " . sprintf "%.2f", $M->[$_] * 100
+            for 0 .. scalar(@$M) - 1;
+
+            my $label=0;
+            $M->[$label] > $M->[$_] or $label = $_ for 1 .. scalar(@$M) - 1;
+            info "Is likely that $label is going to happen";
+
+        #     $prob = sprintf "%.2f", $prob * 100;
+        #   info "Day: $wd  $prob \% of probability for Label $label";
+        $dayn++ if $self->no_day_stats;
     }
+
+    return $self->{result};
 
 }
 
@@ -166,7 +201,7 @@ sub _transition_matrix {
 #transition matrix, sum all the transitions occourred in each day,  and do prob(sumtransiction ,current transation occurrance )
     my $self = shift;
     info "Going to build transation matrix probabilities";
-    if ( $self->no_day_stats  ) {
+    if ( $self->no_day_stats ) {
         map {
             foreach my $c ( 0 .. LABEL_DIM ) {
                 $self->{transition}->slice("$_,$c")
@@ -202,16 +237,36 @@ __END__
 
 =head1 NAME
 
-GitInsight - Blah blah blah
+GitInsight - Predict your github contributions using Bayesian inference and Markov chain
 
 =head1 SYNOPSIS
 
-  use GitInsight;
+    gitinsight --username [githubusername] (--nodaystats) #using the shipped bin
+
+    #or using the module
+
+    my $Insight= GitInsight->new(no_day_stats=>0);
+    $Insight->contrib_calendar("markov"); #specify here the github username
+    my $Result= $Insight->process;
+    $Result = $Insight->{result};
+    # $Result contains the next week predictions and is an arrayref of arrayrefs    [  [ 'Sat', [ 0 ,  '0.151515151515152', '0.0606060606060606', '0.0404040404040404',  0  ]  ],   ..   [            'DayofWeek',            [             probability_label_0,  probability_label_1,              probability_label_2,          probability_label_3,              probability_label_4            ]          ]]
+
 
 =head1 DESCRIPTION
 
-GitInsight is
-Needs pgplot and PDL PGPLOT PDL::Stats sci-libs/gsl-1.15
+GitInsight is module that allow you to predict your github contributions in the "calendar contribution" style of github (the table of contribution that you see on your profile page).
+
+=head1 INSTALLATION
+
+GitInsight requires the installation of gsl (GNU scientific library), PDL, PGPLOT (for plotting) and PDL::Stats  (to be installed after the gsl library set).
+
+It's reccomended to use cpanm to install all the required deps, install it thru your package manager or just do:
+
+    cpan App::cpanminus
+
+After the installation of gsl, you can install all the dependencies with cpanm:
+    cpanm --installldeps .
+
 
 =head1 AUTHOR
 

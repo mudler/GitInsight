@@ -4,8 +4,7 @@ use GitInsight;
 use GitInsight::Util qw(info error warning prob);
 use Data::Dumper;
 use Getopt::Long;
-my $no_day_stats;
-my $username;
+my ($no_day_stats,$username);
 
 GetOptions (
             "username=s"   => \$username,      # string
