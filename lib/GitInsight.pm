@@ -1,21 +1,19 @@
 package GitInsight;
 
-
 # XXX: Add behavioural change detection, focusing on that period for predictions
-# XXX: CA output
 
 BEGIN {
     $|  = 1;
     $^W = 1;
 }
-our $VERSION = '0.01';
+our $VERSION = '0.03';
 
 use Carp::Always;
 use GitInsight::Obj -base;
 use strict;
 use warnings;
 use 5.008_005;
-use Data::Dumper;
+use GD::Simple;
 
 use GitInsight::Util
     qw(markov markov_list LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob);
@@ -29,9 +27,10 @@ has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
 
 sub contrib_calendar {
-    my $self     = shift;
+    my $self = shift;
     my $username = shift || $self->username;
-    my $ua       = LWP::UserAgent->new;
+    $self->username($username) if !$self->username;
+    my $ua = LWP::UserAgent->new;
     $ua->timeout(10);
     $ua->env_proxy;
 
@@ -49,16 +48,59 @@ sub contrib_calendar {
     }
 }
 
+sub draw_ca {
+    my $self = shift;
+    my $cols = int( @{ $self->{ca} } / 7 );
+    my $rows = 7;
+
+    my $cell_width  = 50;
+    my $cell_height = 50;
+    my $border      = 3;
+    my $width       = $cols * $cell_width;
+    my $height      = $rows * $cell_height;
+
+    my $img = GD::Simple->new( $width, $height );
+
+    #$img->font(gdSmallFont); i'll need that later
+
+    for ( my $c = 0; $c < $cols; $c++ ) {
+        for ( my $r = 0; $r < $rows; $r++ ) {
+            my $color = @{ $self->{ca} }[ $c * $rows + $r ] or next;
+            my @topleft = ( $c * $cell_width, $r * $cell_height );
+            my @botright = (
+                $topleft[0] + $cell_width - $border,
+                $topleft[1] + $cell_height - $border
+            );
+            $img->bgcolor( @{$color} );
+            $img->fgcolor( @{$color} );
+            $img->rectangle( @topleft, @botright );
+            $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
+
+            #   $img->fgcolor('black'); needing for the label writing later
+            #  $img->string($color);
+        }
+    }
+    open my $PNG, ">" . $self->username . ".png";
+    binmode($PNG);
+    print $PNG $img->png;
+    close $PNG;
+
+}
+
 # first argument is the data:
 # it should be a string in the form [ [2013-01-20, 9], ....    ] a stringified form of arrayref. each element must be an array ref containing in the first position the date, and in the second the commits .
 sub decode {
-    my $self       = shift;
-    my $response   = eval(shift);
-    my $max_commit = max( map { $_->[1] } @{$response} ); #Calculating label steps
-    $GitInsight::Util::label_step=int($max_commit/LABEL_DIM);  #XXX: i'm not 100% sure of that
-    info "Step is ".$GitInsight::Util::label_step.", detected $max_commit of maximum commit in one day";
+    my $self     = shift;
+    my $response = eval(shift);
+    my $max_commit
+        = max( map { $_->[1] } @{$response} );    #Calculating label steps
+    $GitInsight::Util::label_step
+        = int( $max_commit / LABEL_DIM );    #XXX: i'm not 100% sure of that
+    info "Step is "
+        . $GitInsight::Util::label_step
+        . ", detected $max_commit of maximum commit in one day";
     my $min = shift || 0;
-    $min = 0 if ( $min < 0 );    # avoid negative numbers
+    $min = 0 if ( $min < 0 );                # avoid negative numbers
     my $max = shift || ( scalar( @{$response} ) - $min );
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
@@ -68,16 +110,18 @@ sub decode {
     my %hash;
 
     # $self->{max_commit} =0;
-
     %hash = $self->no_day_stats
         ? map {
         my $l = label( $_->[1] );
+        push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
+            ;    #building the ca
         $last = $l if ( !$last );
 
         $self->{stats}->{$l}++
             if $self->statistics == 1;    #filling stats hashref
-        $self->{transition_hash}->{$last}->{$l}++;    #filling stats hashref
-        $self->{transition_hash}->{t}++;    #total of transitions for each day
+        $self->{transition_hash}->{$last}
+            ->{$l}++;                     #filling transition_hash hashref
+        $self->{transition_hash}->{t}++;  #total of transitions for each day
         $self->{transition}->slice("$last,$l")++;   #filling transition matrix
             #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
         $last = $l;
@@ -92,6 +136,7 @@ sub decode {
         : map {
         my $w = wday( $_->[0] );
         my $l = label( $_->[1] );
+        push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
         $last = $l if ( !$last );
 
         $self->{stats}->{$w}->{$l}++
@@ -126,7 +171,9 @@ sub process {
     #  $self->display_stats;
 
     $self->_transition_matrix;
-    return $self->_markov;
+    my $M = $self->_markov;
+    $self->draw_ca;
+    return $M;
 
     #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
 
@@ -183,9 +230,12 @@ sub _markov {
         info $_. " ---- " . sprintf "%.2f", $M->[$_] * 100
             for 0 .. scalar(@$M) - 1;
 
-            my $label=0;
-            $M->[$label] > $M->[$_] or $label = $_ for 1 .. scalar(@$M) - 1;
-            info "Is likely that $label is going to happen";
+        my $label = 0;
+        $M->[$label] > $M->[$_] or $label = $_ for 1 .. scalar(@$M) - 1;
+        push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$label} )
+            ;    #adding the predictions to ca
+
+        info "Is likely that $label is going to happen";
 
         #     $prob = sprintf "%.2f", $prob * 100;
         #   info "Day: $wd  $prob \% of probability for Label $label";
@@ -265,6 +315,7 @@ It's reccomended to use cpanm to install all the required deps, install it thru 
     cpan App::cpanminus
 
 After the installation of gsl, you can install all the dependencies with cpanm:
+
     cpanm --installldeps .
 
 

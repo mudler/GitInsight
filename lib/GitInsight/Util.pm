@@ -22,11 +22,19 @@ our @CONTRIBS = (
     HIGH_CONTRIBUTIONS
 );
 
+our %CA_COLOURS = (
+    +NO_CONTRIBUTIONS()     => [ 238, 238, 238 ],
+    +FEW_CONTRIBUTIONS()    => [ 214, 230, 133 ],
+    +NORMAL_CONTRIBUTIONS() => [ 140, 198, 101 ],
+    +MORE_CONTRIBUTIONS()   => [ 68,  163, 64 ],
+    +HIGH_CONTRIBUTIONS()   => [ 30,  104, 35 ]
+);
+
 our $label_step;
 
 # LABEL DIMENSION, STARTING TO 0
 
-use constant LABEL_DIM => 4;    # D:5
+use constant LABEL_DIM => 4;    # D:5 0 to 4
 
 our @EXPORT    = qw(info error warning);
 our @EXPORT_OK = (
@@ -97,6 +105,7 @@ sub markov_prob {
 }
 
 sub label {
+
     # XXX: i'm not really sure about that
     local $label_step = $label_step || 5;
     return NO_CONTRIBUTIONS if ( $_[0] == 0 );
