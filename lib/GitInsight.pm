@@ -120,7 +120,7 @@ sub decode {
         $self->{stats}->{$l}++
             if $self->statistics == 1;    #filling stats hashref
         $self->{transition_hash}->{$last}
-            ->{$l}++;                     #filling transition_hash hashref
+            ->{$l}++;                     #filling transition_hash hashref from $last (last seen label) to current label
         $self->{transition_hash}->{t}++;  #total of transitions for each day
         $self->{transition}->slice("$last,$l")++;   #filling transition matrix
             #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
@@ -308,7 +308,7 @@ GitInsight is module that allow you to predict your github contributions in the 
 
 =head1 INSTALLATION
 
-GitInsight requires the installation of gsl (GNU scientific library), PDL, PGPLOT (for plotting) and PDL::Stats  (to be installed after the gsl library set).
+GitInsight requires the installation of gsl (GNU scientific library), gd(http://libgd.org/), PDL, PGPLOT (for plotting) and PDL::Stats  (to be installed after the gsl library set).
 
 It's reccomended to use cpanm to install all the required deps, install it thru your package manager or just do:
 

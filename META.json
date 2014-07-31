@@ -26,8 +26,7 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build::Tiny" : "0.037",
-            "perl" : "5.008005"
+            "Module::Build::Tiny" : "0.037"
          }
       },
       "develop" : {
@@ -38,12 +37,14 @@
       "runtime" : {
          "requires" : {
             "Carp::Always" : "0",
+            "GD::Simple" : "0",
             "Getopt::Long" : "0",
             "LWP::UserAgent" : "0",
-            "PDL::Graphics::Simple" : "0",
+            "List::Util" : "0",
             "PDL::Lite" : "0",
             "PDL::LiteF" : "0",
             "PDL::Stats" : "0",
+            "SomeBaseClass" : "0",
             "Time::Local" : "0",
             "feature" : "0",
             "perl" : "5.008_005"
@@ -56,6 +57,6 @@
       }
    },
    "release_status" : "stable",
-   "version" : "0.01"
+   "version" : "0.03"
 }
 
