@@ -1,10 +1,10 @@
 {
-   "abstract" : "Blah blah blah",
+   "abstract" : "Predict your github contributions using Bayesian inference and Markov chain",
    "author" : [
       "mudler <mudler@dark-lab.net>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Milla version v1.0.4, Dist::Zilla version 5.012, CPAN::Meta::Converter version 2.133380",
+   "generated_by" : "Dist::Milla version v1.0.5, Dist::Zilla version 5.015, CPAN::Meta::Converter version 2.142060",
    "license" : [
       "perl_5"
    ],
@@ -26,7 +26,8 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build::Tiny" : "0.035"
+            "Module::Build::Tiny" : "0.037",
+            "perl" : "5.008005"
          }
       },
       "develop" : {
@@ -36,12 +37,21 @@
       },
       "runtime" : {
          "requires" : {
-            "perl" : "5.008005"
+            "Carp::Always" : "0",
+            "Getopt::Long" : "0",
+            "LWP::UserAgent" : "0",
+            "PDL::Graphics::Simple" : "0",
+            "PDL::Lite" : "0",
+            "PDL::LiteF" : "0",
+            "PDL::Stats" : "0",
+            "Time::Local" : "0",
+            "feature" : "0",
+            "perl" : "5.008_005"
          }
       },
       "test" : {
          "requires" : {
-            "Test::More" : "0.88"
+            "Test::More" : "0"
          }
       }
    },
