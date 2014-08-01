@@ -62,10 +62,10 @@ sub draw_ca {
 
     my $img = GD::Simple->new( $width, $height );
 
-    #$img->font(gdSmallFont); i'll need that later
+    $img->font(gdSmallFont);    #i'll need that later
     for ( my $c = 0; $c < $cols; $c++ ) {
         for ( my $r = 0; $r < $rows; $r++ ) {
-            my $color = @{ $self->{ca} }[ $c * $rows + $r ];
+            my $color = @{ $self->{ca} }[ $c * $rows + $r ] or next;
             my @topleft = ( $c * $cell_width, $r * $cell_height );
             my @botright = (
                 $topleft[0] + $cell_width - $border,
@@ -74,10 +74,15 @@ sub draw_ca {
             $img->bgcolor( @{$color} );
             $img->fgcolor( @{$color} );
             $img->rectangle( @topleft, @botright );
-            $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
 
-            #   $img->fgcolor('black'); needing for the label writing later
-            #  $img->string($color);
+            $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
+            if ( $c * $rows + $r >= ( scalar( @{ $self->{ca} } ) - 7 ) ) {
+       #          $img->fgcolor('red');   #needing for the label writing later
+       #         $img->string("guess");
+                $img->fgcolor("red");
+                $img->rectangle( @topleft, @botright );
+            }
+
         }
     }
     open my $PNG, ">" . $self->username . ".png";
@@ -95,12 +100,12 @@ sub decode {
     my $max_commit
         = max( map { $_->[1] } @{$response} );    #Calculating label steps
     $GitInsight::Util::label_step
-        = int( $max_commit / LABEL_DIM )-2;    #XXX: i'm not 100% sure of that
+        = int( $max_commit / LABEL_DIM ) - 2;  #XXX: i'm not 100% sure of that
     info "Step is "
         . $GitInsight::Util::label_step
         . ", detected $max_commit of maximum commit in one day";
     my $min = shift || 0;
-    $min = 0 if ( $min < 0 );                # avoid negative numbers
+    $min = 0 if ( $min < 0 );                  # avoid negative numbers
     my $max = shift || ( scalar( @{$response} ) - $min );
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
@@ -119,9 +124,9 @@ sub decode {
 
         $self->{stats}->{$l}++
             if $self->statistics == 1;    #filling stats hashref
-        $self->{transition_hash}->{$last}
-            ->{$l}++;                     #filling transition_hash hashref from $last (last seen label) to current label
-        $self->{transition_hash}->{t}++;  #total of transitions for each day
+        $self->{transition_hash}->{$last}->{$l}++
+            ; #filling transition_hash hashref from $last (last seen label) to current label
+        $self->{transition_hash}->{t}++;    #total of transitions for each day
         $self->{transition}->slice("$last,$l")++;   #filling transition matrix
             #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
         $last = $l;
