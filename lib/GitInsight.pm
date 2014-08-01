@@ -26,6 +26,7 @@ has 'username';
 has 'contribs';
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
+has [qw(left_cutoff right_cutoff)];
 
 sub contrib_calendar {
     my $self = shift;
@@ -51,7 +52,8 @@ sub contrib_calendar {
 
 sub draw_ca {
     my $self = shift;
-    my $cols = ceil( @{ $self->{ca} } / 7 );
+    my @CA   = @_;
+    my $cols = ceil( $#CA / 7 )+1;
     my $rows = 7;
 
     my $cell_width  = 50;
@@ -65,7 +67,8 @@ sub draw_ca {
     $img->font(gdSmallFont);    #i'll need that later
     for ( my $c = 0; $c < $cols; $c++ ) {
         for ( my $r = 0; $r < $rows; $r++ ) {
-            my $color = @{ $self->{ca} }[ $c * $rows + $r ] or next;
+
+            my $color = $CA[ $c * $rows + $r ] or next;
             my @topleft = ( $c * $cell_width, $r * $cell_height );
             my @botright = (
                 $topleft[0] + $cell_width - $border,
@@ -76,19 +79,28 @@ sub draw_ca {
             $img->rectangle( @topleft, @botright );
 
             $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
-            if ( $c * $rows + $r >= ( scalar( @{ $self->{ca} } ) - 7 ) ) {
+            if ( $c * $rows + $r >= ( scalar(@CA) - 7 ) ) {
+
        #          $img->fgcolor('red');   #needing for the label writing later
        #         $img->string("guess");
                 $img->fgcolor("red");
                 $img->rectangle( @topleft, @botright );
             }
 
+            if ( $c == 0 ) {
+                $img->fgcolor('black');
+                $img->string( $GitInsight::Util::wday[$r] );
+
+            }
         }
     }
-    open my $PNG, ">" . $self->username . ".png";
+    my $filename = scalar(@CA) . "_" . $self->username . ".png";
+    open my $PNG, ">" . $filename . ".png";
     binmode($PNG);
     print $PNG $img->png;
     close $PNG;
+    info "File written in : " . $filename;
+    return $filename;
 
 }
 
@@ -97,24 +109,44 @@ sub draw_ca {
 sub decode {
     my $self     = shift;
     my $response = eval(shift);
+    my $min      = $self->left_cutoff || 0;
+    $min = 0 if ( $min < 0 );    # avoid negative numbers
+    info $min;
+    my $max = $self->right_cutoff || ( scalar( @{$response} ) - $min );
+    info "$min -> $max portion";
+    $max = scalar( @{$response} )
+        if $max > scalar( @{$response} )
+        ;    # maximum cutoff boundary it's array element number
     my $max_commit
         = max( map { $_->[1] } @{$response} );    #Calculating label steps
+    $self->{first_day}->{day} = wday( $response->[0]->[0] )
+        ; #getting the first day of the commit calendar, it's where the ca will start
+
+    my ($index)
+        = grep { $GitInsight::Util::wday[$_] eq $self->{first_day}->{day} }
+        0 .. $#GitInsight::Util::wday;
+    $self->{first_day}->{index} = $index;
+    push( @{ $self->{ca} }, [ 255, 255, 255 ] )
+        for (
+        0 .. scalar(@GitInsight::Util::wday)    #white fill for labels
+        + $index
+        );                                      #white fill for no contribs
+
     $GitInsight::Util::label_step
         = int( $max_commit / LABEL_DIM ) - 2;  #XXX: i'm not 100% sure of that
     info "Step is "
         . $GitInsight::Util::label_step
         . ", detected $max_commit of maximum commit in one day";
-    my $min = shift || 0;
-    $min = 0 if ( $min < 0 );                  # avoid negative numbers
-    my $max = shift || ( scalar( @{$response} ) - $min );
-    $max = scalar( @{$response} )
-        if $max > scalar( @{$response} )
-        ;    # maximum cutoff boundary it's array element number
+
     $self->{transition} = gen_trans_mat( $self->no_day_stats );
     my $last;
     my %hash;
-
-    # $self->{max_commit} =0;
+    $self->{last_week}
+        = [ map { [ $_->[0], label( $_->[1] ) ] }
+            splice @{$response}, $min ,7    ]
+        ; # cutting the last week from the answer and substituting the label instead of the commit number
+          #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
+          # $self->{max_commit} =0;
     %hash = $self->no_day_stats
         ? map {
         my $l = label( $_->[1] );
@@ -135,9 +167,7 @@ sub decode {
             l => $l          #label
             }
 
-        } ( $min != 0 || $max != scalar @{$response} )
-            ? splice( @{$response}, $min, $max )
-            : @{$response}
+        } splice( @{$response}, $min, ( $max - $min ) )
         : map {
         my $w = wday( $_->[0] );
         my $l = label( $_->[1] );
@@ -159,13 +189,10 @@ sub decode {
             l => $l                       #label
             }
 
-        } ( $min != 0 || $max != scalar @{$response} )
-        ? splice( @{$response}, $min, $max )
-        : @{$response};
-    $self->{last_week}
-        = [ map { [ $_->[0], label( $_->[1] ) ] } @{$response}[ -7 .. -1 ] ]
-        ; # cutting the last week from the answer and substituting the label instead of the commit number
-          #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
+        } splice( @{$response}, $min, ( $max - $min ) );
+
+    use Data::Dumper;
+    print Dumper( $self->{last_week} );
     $self->contribs(%hash);
     return %hash;
 }
@@ -177,7 +204,7 @@ sub process {
 
     $self->_transition_matrix;
     my $M = $self->_markov;
-    $self->draw_ca;
+    $self->draw_ca( @{ $self->{ca} } );
     return $M;
 
     #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
