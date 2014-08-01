@@ -15,6 +15,7 @@ use warnings;
 use 5.008_005;
 use GD::Simple;
 
+use POSIX;
 use GitInsight::Util
     qw(markov markov_list LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob);
 use List::Util qw(max);
@@ -50,7 +51,7 @@ sub contrib_calendar {
 
 sub draw_ca {
     my $self = shift;
-    my $cols = int( @{ $self->{ca} } / 7 );
+    my $cols = ceil( @{ $self->{ca} } / 7 );
     my $rows = 7;
 
     my $cell_width  = 50;
@@ -62,10 +63,9 @@ sub draw_ca {
     my $img = GD::Simple->new( $width, $height );
 
     #$img->font(gdSmallFont); i'll need that later
-
     for ( my $c = 0; $c < $cols; $c++ ) {
         for ( my $r = 0; $r < $rows; $r++ ) {
-            my $color = @{ $self->{ca} }[ $c * $rows + $r ] or next;
+            my $color = @{ $self->{ca} }[ $c * $rows + $r ];
             my @topleft = ( $c * $cell_width, $r * $cell_height );
             my @botright = (
                 $topleft[0] + $cell_width - $border,
@@ -95,7 +95,7 @@ sub decode {
     my $max_commit
         = max( map { $_->[1] } @{$response} );    #Calculating label steps
     $GitInsight::Util::label_step
-        = int( $max_commit / LABEL_DIM );    #XXX: i'm not 100% sure of that
+        = int( $max_commit / LABEL_DIM )-2;    #XXX: i'm not 100% sure of that
     info "Step is "
         . $GitInsight::Util::label_step
         . ", detected $max_commit of maximum commit in one day";
@@ -241,7 +241,6 @@ sub _markov {
         #   info "Day: $wd  $prob \% of probability for Label $label";
         $dayn++ if $self->no_day_stats;
     }
-
     return $self->{result};
 
 }
