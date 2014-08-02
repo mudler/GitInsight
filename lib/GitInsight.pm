@@ -53,7 +53,7 @@ sub contrib_calendar {
 sub draw_ca {
     my $self = shift;
     my @CA   = @_;
-    my $cols = ceil( $#CA / 7 )+1;
+    my $cols = ceil( $#CA / 7 ) + 1;
     my $rows = 7;
 
     my $cell_width  = 50;
@@ -95,7 +95,7 @@ sub draw_ca {
         }
     }
     my $filename = scalar(@CA) . "_" . $self->username . ".png";
-    open my $PNG, ">" . $filename . ".png";
+    open my $PNG, ">" . $filename;
     binmode($PNG);
     print $PNG $img->png;
     close $PNG;
@@ -112,7 +112,8 @@ sub decode {
     my $min      = $self->left_cutoff || 0;
     $min = 0 if ( $min < 0 );    # avoid negative numbers
     info $min;
-    my $max = $self->right_cutoff || ( scalar( @{$response} ) - $min );
+    my $max
+        = $self->right_cutoff || ( scalar( @{$response} ) - 1  );
     info "$min -> $max portion";
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
@@ -143,10 +144,11 @@ sub decode {
     my %hash;
     $self->{last_week}
         = [ map { [ $_->[0], label( $_->[1] ) ] }
-            splice @{$response}, $min ,7    ]
+            ( @{$response} )[ ( $max - 6 ) .. $max ] ]
         ; # cutting the last week from the answer and substituting the label instead of the commit number
           #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
           # $self->{max_commit} =0;
+    info "Decoding .." . scalar( @{$response} );
     %hash = $self->no_day_stats
         ? map {
         my $l = label( $_->[1] );
@@ -190,9 +192,6 @@ sub decode {
             }
 
         } splice( @{$response}, $min, ( $max - $min ) );
-
-    use Data::Dumper;
-    print Dumper( $self->{last_week} );
     $self->contribs(%hash);
     return %hash;
 }
@@ -236,6 +235,8 @@ sub _markov {
     my $self = shift;
     info "Markov chain phase";
     my $dayn = 1;
+    info "Calculating predictions for "
+        . (scalar( @{ $self->{last_week} } ) ). " days";
     foreach my $day ( @{ $self->{last_week} } ) {
         my $wd = wday( $day->[0] );
         my $ld = $day->[1];
@@ -258,16 +259,17 @@ sub _markov {
 
         push( @{ $self->{result} }, [ $wd, $M ] );
 
-        info "for $wd:";
-        info $_. " ---- " . sprintf "%.2f", $M->[$_] * 100
-            for 0 .. scalar(@$M) - 1;
-
         my $label = 0;
         $M->[$label] > $M->[$_] or $label = $_ for 1 .. scalar(@$M) - 1;
         push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$label} )
             ;    #adding the predictions to ca
 
-        info "Is likely that $label is going to happen";
+        info "$wd: "
+            . $label . " has "
+            . ( sprintf "%.2f", $M->[$label] * 100 )
+            . "% of probability to happen";
+        info "\t" . $_ . " ---- " . ( sprintf "%.2f", $M->[$_] * 100 ) . "%"
+            for 0 .. scalar(@$M) - 1;
 
         #     $prob = sprintf "%.2f", $prob * 100;
         #   info "Day: $wd  $prob \% of probability for Label $label";
@@ -300,7 +302,7 @@ sub _transition_matrix {
                 foreach my $c ( 0 .. LABEL_DIM ) {
                     $self->{transition}->{$k}->slice("$_,$c")
                         .= prob( # slice of the single element of the matrix , calculating bayesian inference
-                        $self->{transition_hash}->{$k}->{t}
+                        $self->{transition_hash}->{$k}->{t} ||=0
                         ,        #contains the transiactions sum over the day
                         $self->{transition}->{$k}->slice("$_,$c")
                         )
