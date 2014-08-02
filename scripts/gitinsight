@@ -18,7 +18,8 @@ die("At least you must enter a github username") if !$username;
 my $Insight = GitInsight->new(
     no_day_stats => $no_day_stats,
     left_cutoff  => $left_cutoff,
-    right_cutoff => $right_cuttof
+    right_cutoff => $right_cuttof,
+    file_output=> $user
 );
 $Insight->contrib_calendar($username);
 $Insight->process;

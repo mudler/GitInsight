@@ -26,7 +26,7 @@ has 'username';
 has 'contribs';
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
-has [qw(left_cutoff right_cutoff)];
+has [qw(left_cutoff right_cutoff file_output)];
 
 sub contrib_calendar {
     my $self = shift;
@@ -94,15 +94,28 @@ sub draw_ca {
             }
         }
     }
-    my $filename = scalar(@CA) . "_" . $self->username . ".png";
-    open my $PNG, ">" . $filename;
-    binmode($PNG);
-    print $PNG $img->png;
-    close $PNG;
-    info "File written in : " . $filename;
-    return $filename;
+    if ( defined $self->file_output ) {
+        my $filename
+            = $self->file_output. ".png";
+                      #. "/"
+            #. join( "_", $self->start_day, $self->last_day ) . "_"
+            #. $self->username . "_"
+            #. scalar(@CA) .
+        open my $PNG, ">" . $filename;
+        binmode($PNG);
+        print $PNG $img->png;
+        close $PNG;
+        info "File written in : " . $filename;
+        return $filename;
+    }
+    else {
+        return $img->png;
+    }
 
 }
+
+sub start_day { shift->{first_day}->{data} }
+sub last_day  { @{ shift->{last_week} }[-1]->[0] }
 
 # first argument is the data:
 # it should be a string in the form [ [2013-01-20, 9], ....    ] a stringified form of arrayref. each element must be an array ref containing in the first position the date, and in the second the commits .
@@ -113,7 +126,7 @@ sub decode {
     $min = 0 if ( $min < 0 );    # avoid negative numbers
     info $min;
     my $max
-        = $self->right_cutoff || ( scalar( @{$response} ) - 1  );
+        = $self->right_cutoff || ( scalar( @{$response} ) - 1 );
     info "$min -> $max portion";
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
@@ -127,10 +140,11 @@ sub decode {
         = grep { $GitInsight::Util::wday[$_] eq $self->{first_day}->{day} }
         0 .. $#GitInsight::Util::wday;
     $self->{first_day}->{index} = $index;
+    $self->{first_day}->{data}  = $response->[$min]->[0];
     push( @{ $self->{ca} }, [ 255, 255, 255 ] )
         for (
         0 .. scalar(@GitInsight::Util::wday)    #white fill for labels
-        + $index
+        + ( $index - 1 )
         );                                      #white fill for no contribs
 
     $GitInsight::Util::label_step
@@ -169,7 +183,7 @@ sub decode {
             l => $l          #label
             }
 
-        } splice( @{$response}, $min, ( $max - $min ) )
+        } splice( @{$response}, $min, ( $max + 1 - $min ) )
         : map {
         my $w = wday( $_->[0] );
         my $l = label( $_->[1] );
@@ -191,7 +205,7 @@ sub decode {
             l => $l                       #label
             }
 
-        } splice( @{$response}, $min, ( $max - $min ) );
+        } splice( @{$response}, $min, ( $max + 1 - $min ) );
     $self->contribs(%hash);
     return %hash;
 }
@@ -203,7 +217,7 @@ sub process {
 
     $self->_transition_matrix;
     my $M = $self->_markov;
-    $self->draw_ca( @{ $self->{ca} } );
+    $self->{png} = $self->draw_ca( @{ $self->{ca} } );
     return $M;
 
     #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
@@ -236,7 +250,8 @@ sub _markov {
     info "Markov chain phase";
     my $dayn = 1;
     info "Calculating predictions for "
-        . (scalar( @{ $self->{last_week} } ) ). " days";
+        . ( scalar( @{ $self->{last_week} } ) ) . " days";
+
     foreach my $day ( @{ $self->{last_week} } ) {
         my $wd = wday( $day->[0] );
         my $ld = $day->[1];
@@ -270,11 +285,22 @@ sub _markov {
             . "% of probability to happen";
         info "\t" . $_ . " ---- " . ( sprintf "%.2f", $M->[$_] * 100 ) . "%"
             for 0 .. scalar(@$M) - 1;
+        my @children = @{$M};
+
+        $self->{'treemap'}->{'name'} = "day";
+        my $hwd = { name => $wd, children => [] };
+        push(
+            @{ $hwd->{children} },
+            { name => $_, size => $M->[$_]*10000 }
+        ) for 0 .. scalar(@$M) - 1;
+
+        push( @{ $self->{'treemap'}->{"children"} }, $hwd );
 
         #     $prob = sprintf "%.2f", $prob * 100;
         #   info "Day: $wd  $prob \% of probability for Label $label";
         $dayn++ if $self->no_day_stats;
     }
+
     return $self->{result};
 
 }
@@ -290,9 +316,9 @@ sub _transition_matrix {
                 $self->{transition}->slice("$_,$c")
                     .= prob( # slice of the single element of the matrix , calculating bayesian inference
                     $self->{transition_hash}->{t}
-                    ,        #contains the transiactions sum
+                        ||= 0,    #contains the transiactions sum
                     $self->{transition}->slice("$_,$c")
-                    );       # all the transation occurred, current transation
+                    );    # all the transation occurred, current transation
             }
         } ( 0 .. LABEL_DIM );
     }
@@ -302,7 +328,7 @@ sub _transition_matrix {
                 foreach my $c ( 0 .. LABEL_DIM ) {
                     $self->{transition}->{$k}->slice("$_,$c")
                         .= prob( # slice of the single element of the matrix , calculating bayesian inference
-                        $self->{transition_hash}->{$k}->{t} ||=0
+                        $self->{transition_hash}->{$k}->{t} ||= 0
                         ,        #contains the transiactions sum over the day
                         $self->{transition}->{$k}->slice("$_,$c")
                         )

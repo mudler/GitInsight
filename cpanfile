@@ -6,7 +6,6 @@ requires 'List::Util';
 requires 'PDL::Lite';
 requires 'PDL::LiteF';
 requires 'PDL::Stats';
-requires 'SomeBaseClass';
 requires 'Time::Local';
 requires 'feature';
 requires 'perl', '5.008_005';

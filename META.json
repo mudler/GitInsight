@@ -44,7 +44,6 @@
             "PDL::Lite" : "0",
             "PDL::LiteF" : "0",
             "PDL::Stats" : "0",
-            "SomeBaseClass" : "0",
             "Time::Local" : "0",
             "feature" : "0",
             "perl" : "5.008_005"
