@@ -18,17 +18,17 @@ use GD::Simple;
 use POSIX;
 use Time::Local;
 use GitInsight::Util
-    qw(markov markov_list LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob);
+    qw(markov markov_list LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob label_step);
 use List::Util qw(max);
 
 use LWP::UserAgent;
-use POSIX 'strftime';
+use POSIX qw(strftime ceil);
 
 has 'username';
 has 'contribs';
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
-has 'ca_output'           => sub {1};
+has 'ca_output'    => sub {1};
 has [qw(left_cutoff cutoff_offset file_output)];
 
 sub contrib_calendar {
@@ -120,17 +120,21 @@ sub prediction_start_day { @{ shift->{result} }[0]->[2] }
 sub decode {
     my $self     = shift;
     my $response = eval(shift);
-    my $min      = $self->left_cutoff || 0;
+    my %commits_count;
+    my $min = $self->left_cutoff || 0;
     $min = 0 if ( $min < 0 );    # avoid negative numbers
     info $min;
     my $max
         = $self->cutoff_offset || ( scalar( @{$response} ) - 1 );
     info "$min -> $max portion";
+        my $max_commit
+        = max( map { $_->[1] } @{$response} );    #Calculating label steps
+            label_step( 0 .. $max_commit ); #calculating quartiles over commit count
+
+        info("Max commit is: ".$max_commit);
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
         ;    # maximum cutoff boundary it's array element number
-    my $max_commit
-        = max( map { $_->[1] } @{$response} );    #Calculating label steps
     $self->{first_day}->{day} = wday( $response->[0]->[0] )
         ; #getting the first day of the commit calendar, it's where the ca will start
 
@@ -144,12 +148,6 @@ sub decode {
         0 .. scalar(@GitInsight::Util::wday)    #white fill for labels
         + ( $index - 1 )
         );                                      #white fill for no contribs
-
-    $GitInsight::Util::label_step
-        = int( $max_commit / LABEL_DIM ) - 2;  #XXX: i'm not 100% sure of that
-    info "Step is "
-        . $GitInsight::Util::label_step
-        . ", detected $max_commit of maximum commit in one day";
 
     $self->{transition} = gen_trans_mat( $self->no_day_stats );
     my $last;
@@ -168,7 +166,7 @@ sub decode {
             push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
                 ;    #building the ca
             $last = $l if ( !$last );
-
+        #    $commits_count{ $_->[1] } = 1;
             $self->{stats}->{$l}++
                 if $self->statistics == 1;    #filling stats hashref
             $self->{transition_hash}->{$last}->{$l}++
@@ -184,13 +182,13 @@ sub decode {
                 l => $l          #label
                 }
 
-            } splice( @{$response}, $min, ( $max + 1  ) )
+            } splice( @{$response}, $min, ( $max + 1 ) )
         : map {
             my $w = wday( $_->[0] );
             my $l = label( $_->[1] );
             push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
             $last = $l if ( !$last );
-
+         #   $commits_count{ $_->[1] } = 1;
             $self->{stats}->{$w}->{$l}++
                 if $self->statistics == 1;    #filling stats hashref
             $self->{transition_hash}->{$w}->{$last}
@@ -206,8 +204,9 @@ sub decode {
                 l => $l                   #label
                 }
 
-        } splice( @{$response}, $min, ( $max + 1  ) )
+        } splice( @{$response}, $min, ( $max + 1 ) )
     );
+
     return $self->contribs;
 }
 
@@ -215,7 +214,8 @@ sub process {
     my $self = shift;
     $self->_transition_matrix;
     $self->_markov;
-    $self->{png} = $self->draw_ca( @{ $self->{ca} } ) if ( $self->ca_output == 1 );
+    $self->{png} = $self->draw_ca( @{ $self->{ca} } )
+        if ( $self->ca_output == 1 );
     return $self;
 }
 
@@ -346,6 +346,10 @@ GitInsight is module that allow you to predict your github contributions in the 
 =head1 INSTALLATION
 
 GitInsight requires the installation of gsl (GNU scientific library), gd(http://libgd.org/), PDL, PGPLOT (for plotting) and PDL::Stats  (to be installed after the gsl library set).
+
+on Debian:
+
+        apt-get install gsl-bin libgs10-devt apt-get install pdl libpdl-stats-perl libgd2-xpm-dev
 
 It's reccomended to use cpanm to install all the required deps, install it thru your package manager or just do:
 

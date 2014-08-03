@@ -28,20 +28,26 @@ our %CA_COLOURS = (
     +HIGH_CONTRIBUTIONS()   => [ 30,  104, 35 ]
 );
 
-our $label_step;
-
 # LABEL DIMENSION, STARTING TO 0
 
 use constant LABEL_DIM => 4;    # D:5 0 to 4
 
 our @EXPORT    = qw(info error warning);
 our @EXPORT_OK = (
-    qw(markov_prob markov gen_m_mat dim gen_trans_mat markov_list LABEL_DIM wday label prob
+    qw(markov_prob markov gen_m_mat dim gen_trans_mat markov_list LABEL_DIM wday label prob label_step
 
         ),
     @EXPORT
 );
 our @wday = qw/Mon Tue Wed Thu Fri Sat Sun/;
+
+# to compute
+our %LABEL_STEPS = (
+    +NO_CONTRIBUTIONS()     => 0,
+    +FEW_CONTRIBUTIONS()    => 0,
+    +NORMAL_CONTRIBUTIONS() => 0,
+    +MORE_CONTRIBUTIONS()   => 0,
+);
 
 sub info {
     print "[info] - @_  \n";
@@ -105,14 +111,30 @@ sub markov_prob {
 sub label {
 
     # XXX: i'm not really sure about that
-    local $label_step = $label_step || 5;
     return NO_CONTRIBUTIONS if ( $_[0] == 0 );
-    return FEW_CONTRIBUTIONS if ( $_[0] > 0 and $_[0] <= $label_step );
+    return FEW_CONTRIBUTIONS
+        if ( $_[0] <= $LABEL_STEPS{ +FEW_CONTRIBUTIONS() } );
     return NORMAL_CONTRIBUTIONS
-        if ( $_[0] > $label_step and $_[0] <= $label_step * 2 );
+        if ( $_[0] <= $LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() } );
     return MORE_CONTRIBUTIONS
-        if ( $_[0] >= $label_step * 2 and $_[0] <= $label_step * 3 );
-    return HIGH_CONTRIBUTIONS if ( $_[0] > $label_step * 3 );
+        if ( $_[0] <= $LABEL_STEPS{ +MORE_CONTRIBUTIONS() } );
+    return HIGH_CONTRIBUTIONS
+        if ( $_[0] > $LABEL_STEPS{ +MORE_CONTRIBUTIONS() } );
+}
+
+sub label_step {
+    my @commits_count = @_;
+#Each cell in the graph is shaded with one of 5 possible colors. These colors correspond to the quartiles of the normal distribution over the range [0, max(v)] where v is the sum of issues opened, pull requests proposed and commits authored per day.
+    $LABEL_STEPS{ +FEW_CONTRIBUTIONS() }
+        = $commits_count[ int( scalar @commits_count  / 4 ) -1 ];
+    $LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() }
+        = $commits_count[ int( scalar @commits_count  / 2)-1 ];
+    $LABEL_STEPS{ +MORE_CONTRIBUTIONS() }
+        = $commits_count[ 3 * int( scalar @commits_count / 4)-1  ];
+        &info("FEW_CONTRIBUTIONS: ".$LABEL_STEPS{ +FEW_CONTRIBUTIONS() });
+        &info("NORMAL_CONTRIBUTIONS: ".$LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() });
+        &info("MORE_CONTRIBUTIONS: ".$LABEL_STEPS{ +MORE_CONTRIBUTIONS() });
+
 }
 
 sub prob {
