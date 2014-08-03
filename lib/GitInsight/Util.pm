@@ -6,8 +6,6 @@ use PDL::LiteF;
 use PDL::Lite;
 use PDL::Stats;
 
-#use PDL::Graphics::Simple;
-
 # EVENTS LABELS:
 use constant NO_CONTRIBUTIONS     => 0;
 use constant FEW_CONTRIBUTIONS    => 1;
@@ -128,24 +126,5 @@ sub prob {
         )
     );
 }
-
-# sub plot {
-#     my $n     = shift;
-#     my $event = shift;
-#     my $x     = zeroes(100)->xlinvals( 0.01, 0.99 )
-#         ;                                # 0 padding from 0->1 of 100 steps
-#     info "N: $n , event $event";
-#     my $y = pdf_beta( $x, ( 1 + $event ), ( 1 + $n - $event ) );
-#     line $x, $y;
-#     info "Maximum: " . maximum_ind(      #takes the maximum index of the funct
-#         $y
-#     );
-#     info "\$x ->" . $x->index(    #find the index within the matrix probs
-#         maximum_ind(              #takes the maximum index of the funct
-#             $y
-#         )
-#     );
-#     sleep 200;
-# }
 
 1;

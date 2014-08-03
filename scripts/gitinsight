@@ -4,13 +4,13 @@ use GitInsight;
 use GitInsight::Util qw(info error warning prob);
 use Data::Dumper;
 use Getopt::Long;
-my ( $no_day_stats, $username, $left_cutoff, $right_cuttof );
+my ( $no_day_stats, $username, $left_cutoff, $cutoff_offset );
 
 GetOptions(
     "username=s"   => \$username,        # string
     "nodaystats"   => \$no_day_stats,    # flag
     "left_cutoff=s"  => \$left_cutoff,
-    "right_cutoff=s" => \$right_cuttof
+    "cutoff_offset=s" => \$cutoff_offset
 ) or die("Error in command line arguments\n");
 
 die("At least you must enter a github username") if !$username;
@@ -18,8 +18,8 @@ die("At least you must enter a github username") if !$username;
 my $Insight = GitInsight->new(
     no_day_stats => $no_day_stats,
     left_cutoff  => $left_cutoff,
-    right_cutoff => $right_cuttof,
-    file_output=> $user
+    cutoff_offset => $cutoff_offset,
+    file_output=> $username
 );
 $Insight->contrib_calendar($username);
 $Insight->process;

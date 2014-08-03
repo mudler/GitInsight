@@ -16,17 +16,20 @@ use 5.008_005;
 use GD::Simple;
 
 use POSIX;
+use Time::Local;
 use GitInsight::Util
     qw(markov markov_list LABEL_DIM gen_m_mat gen_trans_mat info error warning wday label prob);
 use List::Util qw(max);
 
 use LWP::UserAgent;
+use POSIX 'strftime';
 
 has 'username';
 has 'contribs';
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
-has [qw(left_cutoff right_cutoff file_output)];
+has 'ca_output'           => sub {1};
+has [qw(left_cutoff cutoff_offset file_output)];
 
 sub contrib_calendar {
     my $self = shift;
@@ -67,8 +70,9 @@ sub draw_ca {
     $img->font(gdSmallFont);    #i'll need that later
     for ( my $c = 0; $c < $cols; $c++ ) {
         for ( my $r = 0; $r < $rows; $r++ ) {
-
-            my $color = $CA[ $c * $rows + $r ] or next;
+            my $color = $CA[ $c * $rows + $r ]
+                or
+                next; #infering ca from sequences of colours generated earlier
             my @topleft = ( $c * $cell_width, $r * $cell_height );
             my @botright = (
                 $topleft[0] + $cell_width - $border,
@@ -77,30 +81,22 @@ sub draw_ca {
             $img->bgcolor( @{$color} );
             $img->fgcolor( @{$color} );
             $img->rectangle( @topleft, @botright );
-
             $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
-            if ( $c * $rows + $r >= ( scalar(@CA) - 7 ) ) {
-
-       #          $img->fgcolor('red');   #needing for the label writing later
-       #         $img->string("guess");
-                $img->fgcolor("red");
-                $img->rectangle( @topleft, @botright );
-            }
-
-            if ( $c == 0 ) {
-                $img->fgcolor('black');
-                $img->string( $GitInsight::Util::wday[$r] );
-
-            }
+            $img->fgcolor("red")
+                and $img->rectangle( @topleft, @botright )
+                if ( $c * $rows + $r >= ( scalar(@CA) - 7 ) );
+            $img->fgcolor('black')
+                and $img->string( $GitInsight::Util::wday[$r] )
+                if ( $c == 0 );
         }
     }
     if ( defined $self->file_output ) {
-        my $filename
-            = $self->file_output. ".png";
-                      #. "/"
-            #. join( "_", $self->start_day, $self->last_day ) . "_"
-            #. $self->username . "_"
-            #. scalar(@CA) .
+        my $filename = $self->file_output . ".png";
+
+        #. "/"
+        #. join( "_", $self->start_day, $self->last_day ) . "_"
+        #. $self->username . "_"
+        #. scalar(@CA) .
         open my $PNG, ">" . $filename;
         binmode($PNG);
         print $PNG $img->png;
@@ -114,8 +110,10 @@ sub draw_ca {
 
 }
 
-sub start_day { shift->{first_day}->{data} }
-sub last_day  { @{ shift->{last_week} }[-1]->[0] }
+# useful when interrogating the object
+sub start_day            { shift->{first_day}->{data} }
+sub last_day             { @{ shift->{result} }[-1]->[2] }
+sub prediction_start_day { @{ shift->{result} }[0]->[2] }
 
 # first argument is the data:
 # it should be a string in the form [ [2013-01-20, 9], ....    ] a stringified form of arrayref. each element must be an array ref containing in the first position the date, and in the second the commits .
@@ -126,7 +124,7 @@ sub decode {
     $min = 0 if ( $min < 0 );    # avoid negative numbers
     info $min;
     my $max
-        = $self->right_cutoff || ( scalar( @{$response} ) - 1 );
+        = $self->cutoff_offset || ( scalar( @{$response} ) - 1 );
     info "$min -> $max portion";
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
@@ -155,7 +153,6 @@ sub decode {
 
     $self->{transition} = gen_trans_mat( $self->no_day_stats );
     my $last;
-    my %hash;
     $self->{last_week}
         = [ map { [ $_->[0], label( $_->[1] ) ] }
             ( @{$response} )[ ( $max - 6 ) .. $max ] ]
@@ -163,86 +160,63 @@ sub decode {
           #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
           # $self->{max_commit} =0;
     info "Decoding .." . scalar( @{$response} );
-    %hash = $self->no_day_stats
+
+    $self->contribs(
+        $self->no_day_stats
         ? map {
-        my $l = label( $_->[1] );
-        push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
-            ;    #building the ca
-        $last = $l if ( !$last );
+            my $l = label( $_->[1] );
+            push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
+                ;    #building the ca
+            $last = $l if ( !$last );
 
-        $self->{stats}->{$l}++
-            if $self->statistics == 1;    #filling stats hashref
-        $self->{transition_hash}->{$last}->{$l}++
-            ; #filling transition_hash hashref from $last (last seen label) to current label
-        $self->{transition_hash}->{t}++;    #total of transitions for each day
-        $self->{transition}->slice("$last,$l")++;   #filling transition matrix
-            #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
-        $last = $l;
-        $_->[0] => {
-            c => $_->[1],    #commits
-            l => $l          #label
-            }
+            $self->{stats}->{$l}++
+                if $self->statistics == 1;    #filling stats hashref
+            $self->{transition_hash}->{$last}->{$l}++
+                ; #filling transition_hash hashref from $last (last seen label) to current label
+            $self->{transition_hash}
+                ->{t}++;    #total of transitions for each day
+            $self->{transition}
+                ->slice("$last,$l")++;    #filling transition matrix
+              #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
+            $last = $l;
+            $_->[0] => {
+                c => $_->[1],    #commits
+                l => $l          #label
+                }
 
-        } splice( @{$response}, $min, ( $max + 1 - $min ) )
+            } splice( @{$response}, $min, ( $max + 1  ) )
         : map {
-        my $w = wday( $_->[0] );
-        my $l = label( $_->[1] );
-        push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
-        $last = $l if ( !$last );
+            my $w = wday( $_->[0] );
+            my $l = label( $_->[1] );
+            push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
+            $last = $l if ( !$last );
 
-        $self->{stats}->{$w}->{$l}++
-            if $self->statistics == 1;    #filling stats hashref
-        $self->{transition_hash}->{$w}->{$last}
-            ->{$l}++;                     #filling stats hashref
-        $self->{transition_hash}->{$w}
-            ->{t}++;                      #total of transitions for each day
-        $self->{transition}->{$w}
-            ->slice("$last,$l")++;        #filling transition matrix
-        $last = $l;
-        $_->[0] => {
-            c => $_->[1],                 #commits
-            d => $w,                      #day in the week
-            l => $l                       #label
-            }
+            $self->{stats}->{$w}->{$l}++
+                if $self->statistics == 1;    #filling stats hashref
+            $self->{transition_hash}->{$w}->{$last}
+                ->{$l}++;                     #filling stats hashref
+            $self->{transition_hash}->{$w}
+                ->{t}++;    #total of transitions for each day
+            $self->{transition}->{$w}
+                ->slice("$last,$l")++;    #filling transition matrix
+            $last = $l;
+            $_->[0] => {
+                c => $_->[1],             #commits
+                d => $w,                  #day in the week
+                l => $l                   #label
+                }
 
-        } splice( @{$response}, $min, ( $max + 1 - $min ) );
-    $self->contribs(%hash);
-    return %hash;
+        } splice( @{$response}, $min, ( $max + 1  ) )
+    );
+    return $self->contribs;
 }
 
 sub process {
     my $self = shift;
-
-    #  $self->display_stats;
-
     $self->_transition_matrix;
-    my $M = $self->_markov;
-    $self->{png} = $self->draw_ca( @{ $self->{ca} } );
-    return $M;
-
-    #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
-
-    #  use Data::Dumper;
-    # print Dumper( $self->{stats} );
-
-}
-
-sub display_stats {
-    my $self = shift;
-    my $sum;
-
-    foreach my $k ( keys %{ $self->{stats} } ) {
-        $sum = 0;
-        $sum += $_ for values %{ $self->{stats}->{$k} };
-        map {
-            info "Calculating probability for $k -> label $_  $sum /  "
-                . $self->{stats}->{$k}->{$_};
-            my $prob = prob( $sum, $self->{stats}->{$k}->{$_} );
-            info "Is: $prob";
-            $self->{stats}->{$k}->{$_} = sprintf "%.5f", $prob;
-        } ( keys %{ $self->{stats}->{$k} } );
-    }
-
+    $self->_markov;
+    $self->{png} = $self->draw_ca( @{ $self->{ca} } ) if ( $self->ca_output == 1 );
+    return $self;
 }
 
 sub _markov {
@@ -252,52 +226,56 @@ sub _markov {
     info "Calculating predictions for "
         . ( scalar( @{ $self->{last_week} } ) ) . " days";
 
-    foreach my $day ( @{ $self->{last_week} } ) {
-        my $wd = wday( $day->[0] );
-        my $ld = $day->[1];
-
-        # my ( $label, $prob ) = markov_prob(
-        #     gen_m_mat($ld),
-        #     $self->no_day_stats
-        #     ? $self->{transition}
-        #     : $self->{transition}->{$wd},
-        #     $dayn
-        # );
-
-        my $M = markov_list(
+    foreach my $day ( @{ $self->{last_week} } ) {    #cycling the last week
+        my $wd = wday( $day->[0] );                  #computing the weekday
+        my $ld = $day->[1];                          #getting the label
+        my $M  = markov_list(
             gen_m_mat($ld),
             $self->no_day_stats
             ? $self->{transition}
             : $self->{transition}->{$wd},
             $dayn
-        );
-
-        push( @{ $self->{result} }, [ $wd, $M ] );
+        );    #Computing the markov for the state
 
         my $label = 0;
         $M->[$label] > $M->[$_] or $label = $_ for 1 .. scalar(@$M) - 1;
         push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$label} )
             ;    #adding the predictions to ca
 
+        my ( $mday, $mon, $year )
+            = reverse( split( /-/, $day->[0] ) );    #splitting date
+
+        push(
+            @{ $self->{result} },
+            [   $wd, $label,
+                $day->[0] = strftime(
+                    '%Y-%m-%d',
+                    localtime(
+                        timelocal( 0, 0, 0, $mday, $mon - 1, $year )
+                            + 7 * 86_400
+                    )
+                    ) #adding 7 days to the date, and adding the result to $self->{result}
+                ,
+                $M
+            ]
+        );
         info "$wd: "
             . $label . " has "
             . ( sprintf "%.2f", $M->[$label] * 100 )
             . "% of probability to happen";
         info "\t" . $_ . " ---- " . ( sprintf "%.2f", $M->[$_] * 100 ) . "%"
             for 0 .. scalar(@$M) - 1;
-        my @children = @{$M};
 
+        ############# TREEMAP GENERATION #############
         $self->{'treemap'}->{'name'} = "day";
-        my $hwd = { name => $wd, children => [] };
+        my $hwd = { name => $day->[0], children => [] };
         push(
             @{ $hwd->{children} },
-            { name => $_, size => $M->[$_]*10000 }
+            { name => $_, size => $M->[$_] * 10000 }
         ) for 0 .. scalar(@$M) - 1;
-
         push( @{ $self->{'treemap'}->{"children"} }, $hwd );
+        ################################################
 
-        #     $prob = sprintf "%.2f", $prob * 100;
-        #   info "Day: $wd  $prob \% of probability for Label $label";
         $dayn++ if $self->no_day_stats;
     }
 
