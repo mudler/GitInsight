@@ -22,6 +22,12 @@ GitInsight is module that allow you to predict your github contributions in the 
 
 GitInsight requires the installation of gsl (GNU scientific library), gd(http://libgd.org/), PDL, PGPLOT (for plotting) and PDL::Stats  (to be installed after the gsl library set).
 
+on Debian:
+
+        apt-get install gsl-bin libgs10-devt apt-get install pdl libpdl-stats-perl libgd2-xpm-dev
+
+For the web interface also the following are required: ruby-sass ruby-compass
+
 It's reccomended to use cpanm to install all the required deps, install it thru your package manager or just do:
 
     cpan App::cpanminus
