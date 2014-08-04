@@ -8,7 +8,7 @@ BEGIN {
 }
 our $VERSION = '0.03';
 
-use Carp::Always;
+#use Carp::Always;
 use GitInsight::Obj -base;
 use strict;
 use warnings;
@@ -84,7 +84,7 @@ sub draw_ca {
             };
             $img->rectangle( @topleft, @botright );
             $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
-            $img->fgcolor("red")
+            $img->fgcolor(255,0,0)
                 and $img->rectangle( @topleft, @botright )
                 if ( $c * $rows + $r >= ( scalar(@CA) - 7 ) );
             $img->fgcolor( 0, 0, 0 )
