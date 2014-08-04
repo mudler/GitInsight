@@ -343,9 +343,17 @@ GitInsight - Predict your github contributions using Bayesian inference and Mark
 
 GitInsight is module that allow you to predict your github contributions in the "calendar contribution" style of github (the table of contribution that you see on your profile page).
 
+=head1 HOW DOES IT WORK?
+
+GitInsight generates a transation probrability matrix from your github contrib_calendar to compute the possibles states for the following days. Given that GitHub split the states thru 5 states (or here also called label), the probability can be inferenced by using Bayesian methods to update the beliefs of the possible state transition, while markov chain is used to predict the states. The output of the submitted data is then plotted using Cellular Automata.
+
+=head2 THEORY
+
+We trace the transitions states in a matrix and increasing the count as far as we observe a transition (L<https://en.wikipedia.org/wiki/Transition_matrix>), then we inference the probabilities using Bayesan method L<https://en.wikipedia.org/wiki/Bayesian_inference> L<https://en.wikipedia.org/wiki/Examples_of_Markov_chains>.
+
 =head1 INSTALLATION
 
-GitInsight requires the installation of gsl (GNU scientific library), gd(http://libgd.org/), PDL, PGPLOT (for plotting) and PDL::Stats  (to be installed after the gsl library set).
+GitInsight requires the installation of gsl (GNU scientific library), gd(http://libgd.org/), PDL and PDL::Stats  (to be installed after the gsl library set).
 
 on Debian:
 
@@ -360,7 +368,6 @@ It's reccomended to use cpanm to install all the required deps, install it thru 
 After the installation of gsl, you can install all the dependencies with cpanm:
 
     cpanm --installldeps .
-
 
 =head1 AUTHOR
 
