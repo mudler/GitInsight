@@ -78,8 +78,10 @@ sub draw_ca {
                 $topleft[0] + $cell_width - $border,
                 $topleft[1] + $cell_height - $border
             );
-            $img->bgcolor( @{$color} );
-            $img->fgcolor( @{$color} );
+            eval {
+                $img->bgcolor( @{$color} );
+                $img->fgcolor( @{$color} );
+            };
             $img->rectangle( @topleft, @botright );
             $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
             $img->fgcolor("red")
@@ -127,11 +129,11 @@ sub decode {
     my $max
         = $self->cutoff_offset || ( scalar( @{$response} ) - 1 );
     info "$min -> $max portion";
-        my $max_commit
+    my $max_commit
         = max( map { $_->[1] } @{$response} );    #Calculating label steps
-            label_step( 0 .. $max_commit ); #calculating quartiles over commit count
+    label_step( 0 .. $max_commit );   #calculating quartiles over commit count
 
-        info("Max commit is: ".$max_commit);
+    info( "Max commit is: " . $max_commit );
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
         ;    # maximum cutoff boundary it's array element number
@@ -166,7 +168,8 @@ sub decode {
             push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
                 ;    #building the ca
             $last = $l if ( !$last );
-        #    $commits_count{ $_->[1] } = 1;
+
+            #    $commits_count{ $_->[1] } = 1;
             $self->{stats}->{$l}++
                 if $self->statistics == 1;    #filling stats hashref
             $self->{transition_hash}->{$last}->{$l}++
@@ -188,7 +191,8 @@ sub decode {
             my $l = label( $_->[1] );
             push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
             $last = $l if ( !$last );
-         #   $commits_count{ $_->[1] } = 1;
+
+            #   $commits_count{ $_->[1] } = 1;
             $self->{stats}->{$w}->{$l}++
                 if $self->statistics == 1;    #filling stats hashref
             $self->{transition_hash}->{$w}->{$last}
