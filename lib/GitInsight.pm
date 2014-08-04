@@ -87,7 +87,7 @@ sub draw_ca {
             $img->fgcolor("red")
                 and $img->rectangle( @topleft, @botright )
                 if ( $c * $rows + $r >= ( scalar(@CA) - 7 ) );
-            $img->fgcolor('black')
+            $img->fgcolor( 0, 0, 0 )
                 and $img->string( $GitInsight::Util::wday[$r] )
                 if ( $c == 0 );
         }
