@@ -44,6 +44,28 @@ After the installation of gsl, you can install all the dependencies with cpanm:
 
     cpanm --installldeps .
 
+# METHODS
+
+## contrib\_calendar($username)
+
+Fetches the github contrib\_calendar of the specified user
+
+## process
+
+Calculate the predictions and generate the CA
+
+## start\_day
+
+Returns the first day of the contrib\_calendar
+
+## last\_day
+
+Returns the last day of the contrib calendar (prediction included)
+
+## prediction\_start\_day
+
+Returns the first day of the prediction (7 days of predictions)
+
 # AUTHOR
 
 mudler <mudler@dark-lab.net>
