@@ -38,12 +38,10 @@ sub contrib_calendar {
     my $ua = LWP::UserAgent->new;
     $ua->timeout(10);
     $ua->env_proxy;
-
     my $response
         = $ua->get( 'https://github.com/users/'
             . $username
             . '/contributions_calendar_data' );
-
     if ( $response->is_success ) {
         $self->decode( $response->decoded_content );
         return $self->contribs;
@@ -372,6 +370,28 @@ It's reccomended to use cpanm to install all the required deps, install it thru 
 After the installation of gsl, you can install all the dependencies with cpanm:
 
     cpanm --installldeps .
+
+=head1 METHODS
+
+=head2 contrib_calendar($username)
+
+Fetches the github contrib_calendar of the specified user
+
+=head2 process
+
+Calculate the predictions and generate the CA
+
+=head2 start_day
+
+Returns the first day of the contrib_calendar
+
+=head2 last_day
+
+Returns the last day of the contrib calendar (prediction included)
+
+=head2 prediction_start_day
+
+Returns the first day of the prediction (7 days of predictions)
 
 =head1 AUTHOR
 
