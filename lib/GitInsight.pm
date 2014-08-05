@@ -82,7 +82,7 @@ sub draw_ca {
             };
             $img->rectangle( @topleft, @botright );
             $img->moveTo( $topleft[0] + 2, $botright[1] + 2 );
-            $img->fgcolor(255,0,0)
+            $img->fgcolor( 255, 0, 0 )
                 and $img->rectangle( @topleft, @botright )
                 if ( $c * $rows + $r >= ( scalar(@CA) - 7 ) );
             $img->fgcolor( 0, 0, 0 )
@@ -216,9 +216,38 @@ sub process {
     my $self = shift;
     $self->_transition_matrix;
     $self->_markov;
+    $self->_gen_stats if ( $self->statistics );
     $self->{png} = $self->draw_ca( @{ $self->{ca} } )
         if ( $self->ca_output == 1 );
     return $self;
+}
+
+sub _gen_stats {
+    my $self = shift;
+    my $sum  = 0;
+    if ( $self->no_day_stats ) {
+        $sum += $_ for values %{ $self->{stats} };
+        foreach my $k ( keys %{ $self->{stats} } ) {
+            info "Calculating probability for label $k  $sum /  "
+                . $self->{stats}->{$k};
+            my $prob = prob( $sum, $self->{stats}->{$k} );
+            info "Is: $prob";
+            $self->{stats}->{$k} = sprintf "%.5f", $prob;
+        }
+    }
+    else {
+        foreach my $k ( keys %{ $self->{stats} } ) {
+            $sum = 0;
+            $sum += $_ for values %{ $self->{stats}->{$k} };
+            map {
+                info "Calculating probability for $k -> label $_  $sum /  "
+                    . $self->{stats}->{$k}->{$_};
+                my $prob = prob( $sum, $self->{stats}->{$k}->{$_} );
+                info "Is: $prob";
+                $self->{stats}->{$k}->{$_} = sprintf "%.5f", $prob;
+            } ( keys %{ $self->{stats}->{$k} } );
+        }
+    }
 }
 
 sub _markov {
