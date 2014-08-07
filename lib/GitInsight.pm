@@ -219,7 +219,7 @@ sub process {
     $self->_gen_stats if ( $self->statistics );
     $self->{png} = $self->draw_ca( @{ $self->{ca} } )
         if ( $self->ca_output == 1 );
-    $self->{steps} = %GitInsight::Util::LABEL_STEPS;
+    $self->{steps} = \%GitInsight::Util::LABEL_STEPS;
     return $self;
 }
 
