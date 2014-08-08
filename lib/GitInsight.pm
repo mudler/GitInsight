@@ -126,18 +126,16 @@ sub decode {
     info $min;
     my $max
         = $self->cutoff_offset || ( scalar( @{$response} ) - 1 );
+    $max = scalar( @{$response} )
+        if $max > scalar( @{$response} )
+        ;    # maximum cutoff boundary it's array element number
     info "$min -> $max portion";
     my $max_commit
         = max( map { $_->[1] } @{$response} );    #Calculating label steps
     label_step( 0 .. $max_commit );   #calculating quartiles over commit count
-
     info( "Max commit is: " . $max_commit );
-    $max = scalar( @{$response} )
-        if $max > scalar( @{$response} )
-        ;    # maximum cutoff boundary it's array element number
     $self->{first_day}->{day} = wday( $response->[0]->[0] )
         ; #getting the first day of the commit calendar, it's where the ca will start
-
     my ($index)
         = grep { $GitInsight::Util::wday[$_] eq $self->{first_day}->{day} }
         0 .. $#GitInsight::Util::wday;
@@ -153,10 +151,12 @@ sub decode {
     my $last;
     $self->{last_week}
         = [ map { [ $_->[0], label( $_->[1] ) ] }
-            ( @{$response} )[ ( $max - 6 ) .. $max ] ]
+            ( @{$response} )[ ( ($max+$min) - 6 ) .. ($max+$min) ] ]
         ; # cutting the last week from the answer and substituting the label instead of the commit number
-          #print( $self->{transition}->{$_} ) for ( keys $self->{transition} );
+          #print( $self->{transition}->{$_} ) for (last_week keys $self->{transition} );
           # $self->{max_commit} =0;
+    use Data::Dumper;
+    info Dumper( $self->{last_week} );
     info "Decoding .." . scalar( @{$response} );
 
     $self->contribs(
