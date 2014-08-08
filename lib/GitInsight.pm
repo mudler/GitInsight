@@ -155,10 +155,6 @@ sub decode {
         ; # cutting the last week from the answer and substituting the label instead of the commit number
           #print( $self->{transition}->{$_} ) for (last_week keys $self->{transition} );
           # $self->{max_commit} =0;
-    use Data::Dumper;
-    info Dumper( $self->{last_week} );
-    info "Decoding .." . scalar( @{$response} );
-
     $self->contribs(
         $self->no_day_stats
         ? map {
