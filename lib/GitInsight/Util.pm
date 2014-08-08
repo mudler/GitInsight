@@ -47,6 +47,7 @@ our %LABEL_STEPS = (
     +FEW_CONTRIBUTIONS()    => 0,
     +NORMAL_CONTRIBUTIONS() => 0,
     +MORE_CONTRIBUTIONS()   => 0,
+    +HIGH_CONTRIBUTIONS()   => 0,
 );
 
 sub info {
@@ -109,8 +110,6 @@ sub markov_prob {
 }
 
 sub label {
-
-    # XXX: i'm not really sure about that
     return NO_CONTRIBUTIONS if ( $_[0] == 0 );
     return FEW_CONTRIBUTIONS
         if ( $_[0] <= $LABEL_STEPS{ +FEW_CONTRIBUTIONS() } );
@@ -125,16 +124,16 @@ sub label {
 sub label_step {
     my @commits_count = @_;
 #Each cell in the graph is shaded with one of 5 possible colors. These colors correspond to the quartiles of the normal distribution over the range [0, max(v)] where v is the sum of issues opened, pull requests proposed and commits authored per day.
+#XXX: next i would implement that in pdl
     $LABEL_STEPS{ +FEW_CONTRIBUTIONS() }
         = $commits_count[ int( scalar @commits_count  / 4 ) -1 ];
     $LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() }
         = $commits_count[ int( scalar @commits_count  / 2)-1 ];
-    $LABEL_STEPS{ +MORE_CONTRIBUTIONS() }
+    $LABEL_STEPS{ +MORE_CONTRIBUTIONS() } = $LABEL_STEPS{ +HIGH_CONTRIBUTIONS() }
         = $commits_count[ 3 * int( scalar @commits_count / 4)-1  ];
         &info("FEW_CONTRIBUTIONS: ".$LABEL_STEPS{ +FEW_CONTRIBUTIONS() });
         &info("NORMAL_CONTRIBUTIONS: ".$LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() });
         &info("MORE_CONTRIBUTIONS: ".$LABEL_STEPS{ +MORE_CONTRIBUTIONS() });
-
 }
 
 sub prob {
