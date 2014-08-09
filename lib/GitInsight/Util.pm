@@ -137,13 +137,11 @@ sub label_step {
 }
 
 sub prob {
-    my $n     = shift;
-    my $event = shift;
     my $x = zeroes(100)->xlinvals( 0, 1 );  # 0 padding from 0->1 of 100 steps
     return $x->index(    #find the index within the matrix probs
         maximum_ind(     #takes the maximum index of the funct
-            pdf_beta( $x, ( 1 + $event ),
-                ( 1 + $n - $event ) )    #y: happens vs not happens
+            pdf_beta( $x, ( 1 + $_[1] ),
+                ( 1 + $_[0] - $_[1] ) )    #y: happens vs not happens
         )
     );
 }
