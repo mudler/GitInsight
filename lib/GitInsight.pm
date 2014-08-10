@@ -1,6 +1,7 @@
 package GitInsight;
 
 # XXX: Add behavioural change detection, focusing on that period for predictions
+# XXX: Adding calculation of uncertainty by walking the contrib calendar and week by week calculating the prediction for the next week, for each right prediction we increment a counter, and at the end we calculate the probability on the number of total weeks
 
 BEGIN {
     $|  = 1;
