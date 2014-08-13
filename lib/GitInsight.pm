@@ -40,9 +40,12 @@ sub contrib_calendar {
     $ua->timeout(10);
     $ua->env_proxy;
     my $response
-        = $ua->get( 'https://github.com/users/'
-            . $username
-            . '/contributions_calendar_data' );
+        = $ua->get(
+        'https://github.com/users/' . $username . '/contributions' );
+    info "Getting "
+        . 'https://github.com/users/'
+        . $username
+        . '/contributions';
     if ( $response->is_success ) {
         $self->decode( $response->decoded_content );
         return $self->contribs;
@@ -152,7 +155,7 @@ sub decode {
     my $last;
     $self->{last_week}
         = [ map { [ $_->[0], label( $_->[1] ) ] }
-            ( @{$response} )[ ( ($max+$min) - 6 ) .. ($max+$min) ] ]
+            ( @{$response} )[ ( ( $max + $min ) - 6 ) .. ( $max + $min ) ] ]
         ; # cutting the last week from the answer and substituting the label instead of the commit number
           #print( $self->{transition}->{$_} ) for (last_week keys $self->{transition} );
           # $self->{max_commit} =0;
