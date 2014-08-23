@@ -25,8 +25,7 @@ use List::Util qw(max);
 use LWP::UserAgent;
 use POSIX qw(strftime ceil);
 
-has 'username';
-has 'contribs';
+has [qw(username contribs calendar)];
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
 has 'ca_output'    => sub {1};
@@ -46,7 +45,9 @@ sub contrib_calendar {
         . 'https://github.com/users/'
         . $username
         . '/contributions';
+
     if ( $response->is_success ) {
+        $self->calendar( eval( $response->decoded_content ) );
         $self->decode( $response->decoded_content );
         return $self->contribs;
     }
@@ -119,13 +120,38 @@ sub start_day            { shift->{first_day}->{data} }
 sub last_day             { @{ shift->{result} }[-1]->[2] }
 sub prediction_start_day { @{ shift->{result} }[0]->[2] }
 
+sub accuracy {
+    my $self = shift;
+    my @chunks;
+    push @chunks, [ splice @{ $self->calendar }, 0, 7 ]
+        while @{ $self->calendar };
+
+    #@chunks contain a list of arrays of 7 days
+    my $Insight = GitInsight->new( no_day_stats => $self->no_day_stats, ca_output=>0, statistics=>0 );#disable png generation
+    my $total_commits=0;
+    my $accuracy=0;
+    for (@chunks) {
+        next if @{$_} <4;
+        $Insight->decode($_);
+        $Insight->process;
+        foreach my $res(@{$Insight->{result}}){
+           $accuracy++ if $self->contribs->{  $res->[2]  }->{l}  and $self->contribs->{  $res->[2]  }->{l} == $res->[1];
+            $total_commits++;
+        }
+    }
+    my $accuracy_prob=prob($total_commits,$accuracy);
+    info "Accuracy is $accuracy / $total_commits";
+    info "$accuracy_prob \%";
+}
+
 # first argument is the data:
 # it should be a string in the form [ [2013-01-20, 9], ....    ] a stringified form of arrayref. each element must be an array ref containing in the first position the date, and in the second the commits .
 sub decode {
-    my $self     = shift;
-    my $response = eval(shift);
+    my $self = shift;
+    my $response = ref $_[0] ne "ARRAY" ? eval(shift) : shift;
     my %commits_count;
     my $min = $self->left_cutoff || 0;
+    $self->{result} = []; #empty the result
     $min = 0 if ( $min < 0 );    # avoid negative numbers
     info $min;
     my $max
@@ -161,7 +187,7 @@ sub decode {
           # $self->{max_commit} =0;
     $self->contribs(
         $self->no_day_stats
-        ? map {
+        ? {map {
             my $l = label( $_->[1] );
             push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
                 ;    #building the ca
@@ -183,8 +209,8 @@ sub decode {
                 l => $l          #label
                 }
 
-            } splice( @{$response}, $min, ( $max + 1 ) )
-        : map {
+            } splice( @{$response}, $min, ( $max + 1 ) ) }
+        : {map {
             my $w = wday( $_->[0] );
             my $l = label( $_->[1] );
             push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
@@ -206,7 +232,7 @@ sub decode {
                 l => $l                   #label
                 }
 
-        } splice( @{$response}, $min, ( $max + 1 ) )
+        } splice( @{$response}, $min, ( $max + 1 ) )}
     );
 
     return $self->contribs;
