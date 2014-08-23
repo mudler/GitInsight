@@ -131,9 +131,9 @@ sub label_step {
         = $commits_count[ int( scalar @commits_count  / 2)-1 ];
     $LABEL_STEPS{ +MORE_CONTRIBUTIONS() } = $LABEL_STEPS{ +HIGH_CONTRIBUTIONS() }
         = $commits_count[ 3 * int( scalar @commits_count / 4)-1  ];
-        &info("FEW_CONTRIBUTIONS: ".$LABEL_STEPS{ +FEW_CONTRIBUTIONS() });
-        &info("NORMAL_CONTRIBUTIONS: ".$LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() });
-        &info("MORE_CONTRIBUTIONS: ".$LABEL_STEPS{ +MORE_CONTRIBUTIONS() });
+        # &info("FEW_CONTRIBUTIONS: ".$LABEL_STEPS{ +FEW_CONTRIBUTIONS() });
+        # &info("NORMAL_CONTRIBUTIONS: ".$LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() });
+        # &info("MORE_CONTRIBUTIONS: ".$LABEL_STEPS{ +MORE_CONTRIBUTIONS() });
 }
 
 sub prob {

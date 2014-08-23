@@ -2,6 +2,7 @@ package GitInsight;
 
 # XXX: Add behavioural change detection, focusing on that period for predictions
 # XXX: Adding calculation of uncertainty by walking the contrib calendar and week by week calculating the prediction for the next week, for each right prediction we increment a counter, and at the end we calculate the probability on the number of total weeks
+# XXX: Accuracy, missing to add sum of chunks while walking the timeline to build up transition matrix with more data
 
 BEGIN {
     $|  = 1;
@@ -26,6 +27,7 @@ use LWP::UserAgent;
 use POSIX qw(strftime ceil);
 
 has [qw(username contribs calendar)];
+has 'verbose'      => sub {0};
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
 has 'ca_output'    => sub {1};
@@ -44,7 +46,8 @@ sub contrib_calendar {
     info "Getting "
         . 'https://github.com/users/'
         . $username
-        . '/contributions';
+        . '/contributions'
+        if $self->verbose;
 
     if ( $response->is_success ) {
         $self->calendar( eval( $response->decoded_content ) );
@@ -106,7 +109,7 @@ sub draw_ca {
         binmode($PNG);
         print $PNG $img->png;
         close $PNG;
-        info "File written in : " . $filename;
+        info "File written in : " . $filename if $self->verbose;
         return $filename;
     }
     else {
@@ -122,26 +125,37 @@ sub prediction_start_day { @{ shift->{result} }[0]->[2] }
 
 sub accuracy {
     my $self = shift;
-    my @chunks;
+    my ( @chunks, @commits );
     push @chunks, [ splice @{ $self->calendar }, 0, 7 ]
         while @{ $self->calendar };
 
-    #@chunks contain a list of arrays of 7 days
-    my $Insight = GitInsight->new( no_day_stats => $self->no_day_stats, ca_output=>0, statistics=>0 );#disable png generation
-    my $total_commits=0;
-    my $accuracy=0;
+    #@chunks contain a list of arrays of 7 days each
+
+    my $total_days = 0;
+    my $accuracy   = 0;
     for (@chunks) {
-        next if @{$_} <4;
-        $Insight->decode($_);
+
+        # next if @{$_} < 4;
+        push( @commits, @{$_} );
+        my $Insight = GitInsight->new(
+            no_day_stats => $self->no_day_stats,
+            ca_output    => 0
+        );    #disable png generation
+        $Insight->decode( [@commits] )
+            ;    #using $_ for small contributors is better
         $Insight->process;
-        foreach my $res(@{$Insight->{result}}){
-           $accuracy++ if $self->contribs->{  $res->[2]  }->{l}  and $self->contribs->{  $res->[2]  }->{l} == $res->[1];
-            $total_commits++;
+        foreach my $res ( @{ $Insight->{result} } ) {
+            next if ( !exists $self->contribs->{ $res->[2] }->{l} );
+            $accuracy++
+                if ( $self->contribs->{ $res->[2] }->{l} == $res->[1] );
+            $total_days++;
         }
     }
-    my $accuracy_prob=prob($total_commits,$accuracy);
-    info "Accuracy is $accuracy / $total_commits";
-    info "$accuracy_prob \%";
+    my $accuracy_prob = prob( $total_days, $accuracy );
+    $self->{accuracy} = $accuracy_prob;
+    info "Accuracy is $accuracy / $total_days" if $self->verbose;
+    info sprintf( "%.5f", $accuracy_prob * 100 ) . " \%" if $self->verbose;
+    return $self;
 }
 
 # first argument is the data:
@@ -151,19 +165,18 @@ sub decode {
     my $response = ref $_[0] ne "ARRAY" ? eval(shift) : shift;
     my %commits_count;
     my $min = $self->left_cutoff || 0;
-    $self->{result} = []; #empty the result
+    $self->{result} = [];    #empty the result
     $min = 0 if ( $min < 0 );    # avoid negative numbers
-    info $min;
     my $max
         = $self->cutoff_offset || ( scalar( @{$response} ) - 1 );
     $max = scalar( @{$response} )
         if $max > scalar( @{$response} )
         ;    # maximum cutoff boundary it's array element number
-    info "$min -> $max portion";
+    info "$min -> $max portion" if $self->verbose;
     my $max_commit
         = max( map { $_->[1] } @{$response} );    #Calculating label steps
     label_step( 0 .. $max_commit );   #calculating quartiles over commit count
-    info( "Max commit is: " . $max_commit );
+    info( "Max commit is: " . $max_commit ) if $self->verbose;
     $self->{first_day}->{day} = wday( $response->[0]->[0] )
         ; #getting the first day of the commit calendar, it's where the ca will start
     my ($index)
@@ -187,52 +200,54 @@ sub decode {
           # $self->{max_commit} =0;
     $self->contribs(
         $self->no_day_stats
-        ? {map {
-            my $l = label( $_->[1] );
-            push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
-                ;    #building the ca
-            $last = $l if ( !$last );
+        ? { map {
+                my $l = label( $_->[1] );
+                push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} )
+                    ;    #building the ca
+                $last = $l if ( !$last );
 
-            #    $commits_count{ $_->[1] } = 1;
-            $self->{stats}->{$l}++
-                if $self->statistics == 1;    #filling stats hashref
-            $self->{transition_hash}->{$last}->{$l}++
-                ; #filling transition_hash hashref from $last (last seen label) to current label
-            $self->{transition_hash}
-                ->{t}++;    #total of transitions for each day
-            $self->{transition}
-                ->slice("$last,$l")++;    #filling transition matrix
-              #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
-            $last = $l;
-            $_->[0] => {
-                c => $_->[1],    #commits
-                l => $l          #label
-                }
+                #    $commits_count{ $_->[1] } = 1;
+                $self->{stats}->{$l}++
+                    if $self->statistics == 1;    #filling stats hashref
+                $self->{transition_hash}->{$last}->{$l}++
+                    ; #filling transition_hash hashref from $last (last seen label) to current label
+                $self->{transition_hash}
+                    ->{t}++;    #total of transitions for each day
+                $self->{transition}
+                    ->slice("$last,$l")++;    #filling transition matrix
+                 #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
+                $last = $l;
+                $_->[0] => {
+                    c => $_->[1],    #commits
+                    l => $l          #label
+                    }
 
-            } splice( @{$response}, $min, ( $max + 1 ) ) }
-        : {map {
-            my $w = wday( $_->[0] );
-            my $l = label( $_->[1] );
-            push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
-            $last = $l if ( !$last );
+            } splice( @{$response}, $min, ( $max + 1 ) )
+            }
+        : { map {
+                my $w = wday( $_->[0] );
+                my $l = label( $_->[1] );
+                push( @{ $self->{ca} }, $GitInsight::Util::CA_COLOURS{$l} );
+                $last = $l if ( !$last );
 
-            #   $commits_count{ $_->[1] } = 1;
-            $self->{stats}->{$w}->{$l}++
-                if $self->statistics == 1;    #filling stats hashref
-            $self->{transition_hash}->{$w}->{$last}
-                ->{$l}++;                     #filling stats hashref
-            $self->{transition_hash}->{$w}
-                ->{t}++;    #total of transitions for each day
-            $self->{transition}->{$w}
-                ->slice("$last,$l")++;    #filling transition matrix
-            $last = $l;
-            $_->[0] => {
-                c => $_->[1],             #commits
-                d => $w,                  #day in the week
-                l => $l                   #label
-                }
+                #   $commits_count{ $_->[1] } = 1;
+                $self->{stats}->{$w}->{$l}++
+                    if $self->statistics == 1;    #filling stats hashref
+                $self->{transition_hash}->{$w}->{$last}
+                    ->{$l}++;                     #filling stats hashref
+                $self->{transition_hash}->{$w}
+                    ->{t}++;    #total of transitions for each day
+                $self->{transition}->{$w}
+                    ->slice("$last,$l")++;    #filling transition matrix
+                $last = $l;
+                $_->[0] => {
+                    c => $_->[1],             #commits
+                    d => $w,                  #day in the week
+                    l => $l                   #label
+                    }
 
-        } splice( @{$response}, $min, ( $max + 1 ) )}
+            } splice( @{$response}, $min, ( $max + 1 ) )
+        }
     );
 
     return $self->contribs;
@@ -256,9 +271,10 @@ sub _gen_stats {
         $sum += $_ for values %{ $self->{stats} };
         foreach my $k ( keys %{ $self->{stats} } ) {
             info "Calculating probability for label $k  $sum /  "
-                . $self->{stats}->{$k};
+                . $self->{stats}->{$k}
+                if $self->verbose;
             my $prob = prob( $sum, $self->{stats}->{$k} );
-            info "Is: $prob";
+            info "Is: $prob" if $self->verbose;
             $self->{stats}->{$k} = sprintf "%.5f", $prob;
         }
     }
@@ -268,9 +284,10 @@ sub _gen_stats {
             $sum += $_ for values %{ $self->{stats}->{$k} };
             map {
                 info "Calculating probability for $k -> label $_  $sum /  "
-                    . $self->{stats}->{$k}->{$_};
+                    . $self->{stats}->{$k}->{$_}
+                    if $self->verbose;
                 my $prob = prob( $sum, $self->{stats}->{$k}->{$_} );
-                info "Is: $prob";
+                info "Is: $prob" if $self->verbose;
                 $self->{stats}->{$k}->{$_} = sprintf "%.5f", $prob;
             } ( keys %{ $self->{stats}->{$k} } );
         }
@@ -279,10 +296,11 @@ sub _gen_stats {
 
 sub _markov {
     my $self = shift;
-    info "Markov chain phase";
+    info "Markov chain phase" if $self->verbose;
     my $dayn = 1;
     info "Calculating predictions for "
-        . ( scalar( @{ $self->{last_week} } ) ) . " days";
+        . ( scalar( @{ $self->{last_week} } ) ) . " days"
+        if $self->verbose;
 
     foreach my $day ( @{ $self->{last_week} } ) {    #cycling the last week
         my $wd = wday( $day->[0] );                  #computing the weekday
@@ -317,12 +335,18 @@ sub _markov {
                 $M
             ]
         );
-        info "$wd: "
-            . $label . " has "
-            . ( sprintf "%.2f", $M->[$label] * 100 )
-            . "% of probability to happen";
-        info "\t" . $_ . " ---- " . ( sprintf "%.2f", $M->[$_] * 100 ) . "%"
-            for 0 .. scalar(@$M) - 1;
+
+        if ( $self->verbose ) {
+            info "$wd: "
+                . $label . " has "
+                . ( sprintf "%.2f", $M->[$label] * 100 )
+                . "% of probability to happen";
+            info "\t"
+                . $_
+                . " ---- "
+                . ( sprintf "%.2f", $M->[$_] * 100 ) . "%"
+                for 0 .. scalar(@$M) - 1;
+        }
 
         ############# TREEMAP GENERATION #############
         $self->{'treemap'}->{'name'} = "day";
@@ -345,7 +369,7 @@ sub _transition_matrix {
 
 #transition matrix, sum all the transitions occourred in each day,  and do prob(sumtransiction ,current transation occurrance )
     my $self = shift;
-    info "Going to build transation matrix probabilities";
+    info "Going to build transation matrix probabilities" if $self->verbose;
     if ( $self->no_day_stats ) {
         map {
             foreach my $c ( 0 .. LABEL_DIM ) {
