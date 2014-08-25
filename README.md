@@ -45,6 +45,40 @@ After the installation of gsl, you can install all the dependencies with cpanm:
 
     cpanm --installldeps .
 
+# OPTIONS
+
+## username
+
+required, it's the GitHub username used to calculate the prediction
+
+## ca\_output
+
+you can enable/disable the cellular autmata output using this option (1/0)
+
+## no\_day\_stats
+
+setting this option to 1, will slightly change the prediction: it will be calculated a unique transition matrix instead one for each day
+
+## left\_cutoff
+
+used to cut the days from the start (e.g. if you want to delete the first 20 days from the prediction, just set this to 20)
+
+## cutoff\_offset
+
+used to select a range where the prediction happens (e.g. if you want to calculate the prediction of a portion of your year of contribution)
+
+## file\_output
+
+here you can choose the file output name for ca.
+
+## accuracy
+
+Enable/disable accuracy calculation (1/0)
+
+## verbose
+
+Enable/disable verbosity (1/0)
+
 # METHODS
 
 ## contrib\_calendar($username)
