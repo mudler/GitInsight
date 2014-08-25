@@ -4,7 +4,7 @@ GitInsight - Predict your github contributions using Bayesian inference and Mark
 
 # SYNOPSIS
 
-    gitinsight --username [githubusername] (--nodaystats) #using the shipped bin
+    gitinsight --username [githubusername] (--nodaystats) (--accuracy) #using the shipped bin
 
     #or using the module
 
@@ -115,3 +115,5 @@ This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
 
 # SEE ALSO
+
+[GitInsight::Util](https://metacpan.org/pod/GitInsight::Util), [PDL](https://metacpan.org/pod/PDL)
