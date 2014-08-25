@@ -1,8 +1,6 @@
 package GitInsight;
 
 # XXX: Add behavioural change detection, focusing on that period for predictions
-# XXX: Adding calculation of uncertainty by walking the contrib calendar and week by week calculating the prediction for the next week, for each right prediction we increment a counter, and at the end we calculate the probability on the number of total weeks
-# XXX: Accuracy, missing to add sum of chunks while walking the timeline to build up transition matrix with more data
 
 BEGIN {
     $|  = 1;
@@ -17,6 +15,7 @@ use warnings;
 use 5.008_005;
 use GD::Simple;
 
+use Carp;
 use POSIX;
 use Time::Local;
 use GitInsight::Util
@@ -31,6 +30,7 @@ has 'verbose'      => sub {0};
 has 'no_day_stats' => sub {0};
 has 'statistics'   => sub {0};
 has 'ca_output'    => sub {1};
+has 'accuracy'     => sub {0};
 has [qw(left_cutoff cutoff_offset file_output)];
 
 sub contrib_calendar {
@@ -123,7 +123,7 @@ sub start_day            { shift->{first_day}->{data} }
 sub last_day             { @{ shift->{result} }[-1]->[2] }
 sub prediction_start_day { @{ shift->{result} }[0]->[2] }
 
-sub accuracy {
+sub _accuracy {
     my $self = shift;
     my ( @chunks, @commits );
     push @chunks, [ splice @{ $self->calendar }, 0, 7 ]
@@ -139,7 +139,8 @@ sub accuracy {
         push( @commits, @{$_} );
         my $Insight = GitInsight->new(
             no_day_stats => $self->no_day_stats,
-            ca_output    => 0
+            ca_output    => 0,
+            username     => $self->username
         );    #disable png generation
         $Insight->decode( [@commits] )
             ;    #using $_ for small contributors is better
@@ -255,12 +256,17 @@ sub decode {
 
 sub process {
     my $self = shift;
+    croak "process() called while you have not specified an username"
+        if !$self->username;
+    $self->contrib_calendar( $self->username )
+        if !$self->contribs and $self->username;
     $self->_transition_matrix;
     $self->_markov;
     $self->_gen_stats if ( $self->statistics );
     $self->{png} = $self->draw_ca( @{ $self->{ca} } )
         if ( $self->ca_output == 1 );
     $self->{steps} = \%GitInsight::Util::LABEL_STEPS;
+    $self->_accuracy if $self->accuracy and $self->accuracy == 1;
     return $self;
 }
 
@@ -451,6 +457,40 @@ It's reccomended to use cpanm to install all the required deps, install it thru 
 After the installation of gsl, you can install all the dependencies with cpanm:
 
     cpanm --installldeps .
+
+=head1 OPTIONS
+
+=head2 username
+
+required, it's the GitHub username used to calculate the prediction
+
+=head2 ca_output
+
+you can enable/disable the cellular autmata output using this option (1/0)
+
+=head2 no_day_stats
+
+setting this option to 1, will slightly change the prediction: it will be calculated a unique transition matrix instead one for each day
+
+=head2 left_cutoff
+
+used to cut the days from the start (e.g. if you want to delete the first 20 days from the prediction, just set this to 20)
+
+=head2 cutoff_offset
+
+used to select a range where the prediction happens (e.g. if you want to calculate the prediction of a portion of your year of contribution)
+
+=head2 file_output
+
+here you can choose the file output name for ca.
+
+=head2 accuracy
+
+Enable/disable accuracy calculation (1/0)
+
+=head2 verbose
+
+Enable/disable verbosity (1/0)
 
 =head1 METHODS
 
