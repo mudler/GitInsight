@@ -448,8 +448,6 @@ on Debian:
         apt-get install gsl-bin libgs10-devt
         apt-get install pdl libpdl-stats-perl libgd2-xpm-dev
 
-For the web interface also the following are required: ruby-sass ruby-compass
-
 It's reccomended to use cpanm to install all the required deps, install it thru your package manager or just do:
 
     cpan App::cpanminus
