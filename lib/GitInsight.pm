@@ -372,31 +372,30 @@ sub _markov {
 }
 
 sub _transition_matrix {
-
-#transition matrix, sum all the transitions occourred in each day,  and do prob(sumtransiction ,current transation occurrance )
+#transition matrix, sum all the transitions occourred in each day,  and do prob(sumtransitionrow ,current transation occurrance )
     my $self = shift;
     info "Going to build transation matrix probabilities" if $self->verbose;
     if ( $self->no_day_stats ) {
+        my $sum =  $self->{transition}->sumover();
         map {
             foreach my $c ( 0 .. LABEL_DIM ) {
                 $self->{transition}->slice("$_,$c")
                     .= prob( # slice of the single element of the matrix , calculating bayesian inference
-                    $self->{transition_hash}->{t}
-                        ||= 0,    #contains the transiactions sum
-                    $self->{transition}->slice("$_,$c")
-                    );    # all the transation occurred, current transation
+                    $sum->at($c),    #contains the transition sum of the row
+                    $self->{transition}->at($_,$c)
+                    );       # all the transation occurred, current transation
             }
         } ( 0 .. LABEL_DIM );
     }
     else {
         foreach my $k ( keys %{ $self->{transition} } ) {
+            my $sum =  $self->{transition}->{$k}->sumover();
             map {
                 foreach my $c ( 0 .. LABEL_DIM ) {
                     $self->{transition}->{$k}->slice("$_,$c")
                         .= prob( # slice of the single element of the matrix , calculating bayesian inference
-                        $self->{transition_hash}->{$k}->{t} ||= 0
-                        ,        #contains the transiactions sum over the day
-                        $self->{transition}->{$k}->slice("$_,$c")
+                        $sum->at($c),    #contains the transition sum of the row over the day
+                        $self->{transition}->{$k}->at($_,$c)
                         )
                         ; # all the transation occurred in those days, current transation
                 }
