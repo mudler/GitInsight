@@ -212,8 +212,6 @@ sub decode {
                     if $self->statistics == 1;    #filling stats hashref
                 $self->{transition_hash}->{$last}->{$l}++
                     ; #filling transition_hash hashref from $last (last seen label) to current label
-                $self->{transition_hash}
-                    ->{t}++;    #total of transitions for each day
                 $self->{transition}
                     ->slice("$last,$l")++;    #filling transition matrix
                  #$self->{max_commit} = $_->[1] if ($_->[1]>$self->{max_commit});
@@ -236,8 +234,6 @@ sub decode {
                     if $self->statistics == 1;    #filling stats hashref
                 $self->{transition_hash}->{$w}->{$last}
                     ->{$l}++;                     #filling stats hashref
-                $self->{transition_hash}->{$w}
-                    ->{t}++;    #total of transitions for each day
                 $self->{transition}->{$w}
                     ->slice("$last,$l")++;    #filling transition matrix
                 $last = $l;
