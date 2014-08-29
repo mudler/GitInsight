@@ -95,7 +95,7 @@ sub markov_list {
     my $a   = shift;
     my $b   = shift;
     my $pow = shift || 1;
-    return [ list( ( $pow != 1 ) ? $a x ( $b**$pow ) : $a x $b ) ];
+    return [ list( &markov( $a, $b, $pow ) ) ];
 
 }
 
@@ -111,11 +111,11 @@ sub markov_prob {
 sub label {
     return NO_CONTRIBUTIONS if ( $_[0] == 0 );
     return FEW_CONTRIBUTIONS
-        if ( $_[0] <= $LABEL_STEPS{ +FEW_CONTRIBUTIONS() } );
+        unless ( $_[0] > $LABEL_STEPS{ +FEW_CONTRIBUTIONS() } );
     return NORMAL_CONTRIBUTIONS
-        if ( $_[0] <= $LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() } );
+        unless ( $_[0] > $LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() } );
     return MORE_CONTRIBUTIONS
-        if ( $_[0] <= $LABEL_STEPS{ +MORE_CONTRIBUTIONS() } );
+        unless ( $_[0] > $LABEL_STEPS{ +MORE_CONTRIBUTIONS() } );
     return HIGH_CONTRIBUTIONS;
 }
 
@@ -127,7 +127,7 @@ sub label_step {
     $LABEL_STEPS{ +FEW_CONTRIBUTIONS() }
         = $commits_count[ int( scalar @commits_count / 4 ) ];
     $LABEL_STEPS{ +NORMAL_CONTRIBUTIONS() }
-        = $commits_count[ int( scalar @commits_count / 2 ) ];
+        = $commits_count[ int( scalar @commits_count / 2 )];
     $LABEL_STEPS{ +MORE_CONTRIBUTIONS() }
         = $LABEL_STEPS{ +HIGH_CONTRIBUTIONS() }
         = $commits_count[ 3 * int( scalar @commits_count / 4 ) ];
