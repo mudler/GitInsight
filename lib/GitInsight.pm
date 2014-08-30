@@ -6,7 +6,7 @@ BEGIN {
     $|  = 1;
     $^W = 1;
 }
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 #use Carp::Always;
 use GitInsight::Obj -base;
@@ -415,9 +415,9 @@ GitInsight - Predict your github contributions using Bayesian inference and Mark
 
     #or using the module
 
-    my $Insight= GitInsight->new(no_day_stats=>0);
-    $Insight->contrib_calendar("markov"); #specify here the github username
+    my $Insight= GitInsight->new(no_day_stats => 0, username => "markov", accuracy=> 1);
     my $Result= $Insight->process;
+    my $accuracy = $Insight->{accuracy};
     $Result = $Insight->{result};
     # $Result contains the next week predictions and is an arrayref of arrayrefs    [  [ 'Sat', 1, '2014-07-1', [ 0 ,  '0.151515151515152', '0.0606060606060606', '0.0404040404040404',  0  ]  ],   ..   [            'DayofWeek',      'winner_label',  'day' ,  [             probability_label_0,  probability_label_1,              probability_label_2,          probability_label_3,              probability_label_4            ]          ]]
 
@@ -522,6 +522,6 @@ it under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
-L<GitInsight::Util>, L<PDL>
+L<GitInsight::Util>, L<PDL>, L<PDL::Stats>
 
 =cut

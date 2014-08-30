@@ -1,4 +1,5 @@
 Revision history for GitInsight
 
 {{$NEXT}}
+	- Added accuracy computation
         - Initial release
