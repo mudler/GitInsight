@@ -451,6 +451,13 @@ After the installation of gsl, you can install all the dependencies with cpanm:
 
     cpanm --installldeps .
 
+Then install it as usual:
+
+    perl Build.PL
+    ./Build
+    ./Build test #ensure that the module works correctly
+    ./Build install
+
 =head1 OPTIONS
 
 =head2 username
