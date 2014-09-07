@@ -16,6 +16,7 @@ use 5.008_005;
 use GD::Simple;
 
 use Carp;
+use Storable qw(dclone);
 use POSIX;
 use Time::Local;
 use GitInsight::Util
@@ -50,7 +51,6 @@ sub contrib_calendar {
         if $self->verbose;
 
     if ( $response->is_success ) {
-        $self->calendar( eval( $response->decoded_content ) );
         $self->decode( $response->decoded_content );
         return $self->contribs;
     }
@@ -159,11 +159,25 @@ sub _accuracy {
     return $self;
 }
 
+sub _decode_calendar {
+    shift;
+    my $content = shift;
+    my @out;
+    push( @out, [ $2, $1 ] )
+        while ( $content =~ m/data\-count="(.*?)" data\-date="(.*?)"/g );
+
+    return \@out;
+}
+
 # first argument is the data:
 # it should be a string in the form [ [2013-01-20, 9], ....    ] a stringified form of arrayref. each element must be an array ref containing in the first position the date, and in the second the commits .
 sub decode {
     my $self = shift;
-    my $response = ref $_[0] ne "ARRAY" ? eval(shift) : shift;
+
+    #my $response = ref $_[0] ne "ARRAY" ? eval(shift) : shift;
+    my $response
+        = ref $_[0] ne "ARRAY" ? $self->_decode_calendar(shift) : shift;
+    $self->calendar( dclone($response) );
     my %commits_count;
     my $min = $self->left_cutoff || 0;
     $self->{result} = [];    #empty the result
@@ -235,12 +249,12 @@ sub decode {
                 $self->{transition_hash}->{$w}->{$last}
                     ->{$l}++;                     #filling stats hashref
                 $self->{transition}->{$w}
-                    ->slice("$last,$l")++;    #filling transition matrix
+                    ->slice("$last,$l")++;        #filling transition matrix
                 $last = $l;
                 $_->[0] => {
-                    c => $_->[1],             #commits
-                    d => $w,                  #day in the week
-                    l => $l                   #label
+                    c => $_->[1],                 #commits
+                    d => $w,                      #day in the week
+                    l => $l                       #label
                     }
 
             } splice( @{$response}, $min, ( $max + 1 ) )
@@ -368,30 +382,32 @@ sub _markov {
 }
 
 sub _transition_matrix {
+
 #transition matrix, sum all the transitions occourred in each day,  and do prob(sumtransitionrow ,current transation occurrance )
     my $self = shift;
     info "Going to build transation matrix probabilities" if $self->verbose;
     if ( $self->no_day_stats ) {
-        my $sum =  $self->{transition}->sumover();
+        my $sum = $self->{transition}->sumover();
         map {
             foreach my $c ( 0 .. LABEL_DIM ) {
                 $self->{transition}->slice("$_,$c")
                     .= prob( # slice of the single element of the matrix , calculating bayesian inference
                     $sum->at($c),    #contains the transition sum of the row
-                    $self->{transition}->at($_,$c)
-                    );       # all the transation occurred, current transation
+                    $self->{transition}->at( $_, $c )
+                    );    # all the transation occurred, current transation
             }
         } ( 0 .. LABEL_DIM );
     }
     else {
         foreach my $k ( keys %{ $self->{transition} } ) {
-            my $sum =  $self->{transition}->{$k}->sumover();
+            my $sum = $self->{transition}->{$k}->sumover();
             map {
                 foreach my $c ( 0 .. LABEL_DIM ) {
                     $self->{transition}->{$k}->slice("$_,$c")
                         .= prob( # slice of the single element of the matrix , calculating bayesian inference
-                        $sum->at($c),    #contains the transition sum of the row over the day
-                        $self->{transition}->{$k}->at($_,$c)
+                        $sum->at($c)
+                        , #contains the transition sum of the row over the day
+                        $self->{transition}->{$k}->at( $_, $c )
                         )
                         ; # all the transation occurred in those days, current transation
                 }
