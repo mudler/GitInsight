@@ -74,11 +74,11 @@ subtest 'GitInsight with no_day_stats = 1', sub {
 
     is $Insight->{result}->[0]->[1], 3, "1st day prediction match";
     is $Insight->{result}->[1]->[1], 3, "2nd day prediction match";
-    is $Insight->{result}->[2]->[1], 4, "3rd day prediction match";
-    is $Insight->{result}->[3]->[1], 4, "4th day prediction match";
-    is $Insight->{result}->[4]->[1], 1, "5th day prediction match";
-    is $Insight->{result}->[5]->[1], 1, "6th day prediction match";
-    is $Insight->{result}->[6]->[1], 1, "7th day prediction match";
+    is $Insight->{result}->[2]->[1], 3, "3rd day prediction match";
+    is $Insight->{result}->[3]->[1], 3, "4th day prediction match";
+    is $Insight->{result}->[4]->[1], 3, "5th day prediction match";
+    is $Insight->{result}->[5]->[1], 3, "6th day prediction match";
+    is $Insight->{result}->[6]->[1], 3, "7th day prediction match";
 };
 
 done_testing;

@@ -5,6 +5,7 @@ use Time::Local;
 use PDL::LiteF;
 use PDL::Lite;
 use PDL::Stats;
+use PDL::Ops;
 
 # EVENTS LABELS:
 use constant NO_CONTRIBUTIONS     => 0;
@@ -88,7 +89,14 @@ sub markov {
     my $a   = shift;
     my $b   = shift;
     my $pow = shift || 1;
-    return ( $pow != 1 ) ? $a x ( $b**$pow ) : $a x $b;
+    return ( $pow != 1 ) ? $a x (powering($b,$pow)) : $a x $b;
+}
+
+sub powering($){
+    my $a=shift->copy;
+    my $pow=shift;
+     $a=$a x $a  for 1..$pow-1;
+     return $a;
 }
 
 sub markov_list {
