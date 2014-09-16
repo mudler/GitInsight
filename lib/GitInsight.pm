@@ -463,9 +463,9 @@ It's reccomended to use cpanm to install all the required deps, install it thru 
 
     cpan App::cpanminus
 
-After the installation of gsl, you can install all the dependencies with cpanm:
+After the installation of gsl, clone the repository and install all the dependencies with cpanm:
 
-    cpanm --installldeps .
+    cpanm --installdeps .
 
 Then install it as usual:
 
