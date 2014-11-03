@@ -56,6 +56,17 @@
       }
    },
    "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/mudler/GitInsight/issues"
+      },
+      "homepage" : "https://github.com/mudler/GitInsight",
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/mudler/GitInsight.git",
+         "web" : "https://github.com/mudler/GitInsight"
+      }
+   },
    "version" : "0.04"
 }
 

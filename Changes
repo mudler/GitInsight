@@ -2,5 +2,7 @@ Revision history for GitInsight
 
 {{$NEXT}}
 
+	- updated META, added git repo
+
 0.04  2014-11-03 18:27:35 CET
 	- Added accuracy computation

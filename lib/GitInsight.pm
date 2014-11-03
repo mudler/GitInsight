@@ -6,7 +6,7 @@ BEGIN {
     $|  = 1;
     $^W = 1;
 }
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 #use Carp::Always;
 use GitInsight::Obj -base;
